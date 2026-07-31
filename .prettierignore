@@ -1,0 +1,8 @@
+node_modules
+dist
+build
+.next
+coverage
+pnpm-lock.yaml
+*.tsbuildinfo
+.husky/_

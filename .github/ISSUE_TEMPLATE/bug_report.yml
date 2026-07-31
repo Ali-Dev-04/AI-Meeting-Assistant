@@ -1,0 +1,64 @@
+name: 🐛 Bug report
+description: Report something that is broken or behaves incorrectly
+title: "[bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug! Please fill in the details below.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: A clear description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Exact steps to reproduce the behavior.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      description: OS, browser, app version, or API version where this happened.
+      placeholder: "Chrome 124 / macOS / web v0.1.0"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Console output, error messages, or screenshots. Paste logs in code blocks.
+      render: shell
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - "Low — minor annoyance"
+        - "Medium — workaround exists"
+        - "High — core feature broken"
+        - "Critical — data loss / security / production down"
+    validations:
+      required: true

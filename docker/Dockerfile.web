@@ -1,0 +1,31 @@
+# Multi-stage build for the Next.js frontend (non-standalone; works on any host).
+FROM node:20-bookworm-slim AS builder
+WORKDIR /app
+RUN corepack enable
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY apps/web/package.json ./apps/web/
+COPY packages/shared-types/package.json ./packages/shared-types/
+RUN pnpm install --frozen-lockfile
+
+COPY apps/web ./apps/web
+COPY packages/shared-types ./packages/shared-types
+RUN pnpm --filter @ama/web build
+
+# --- runtime: prod deps + built .next, run via `next start` ---
+FROM node:20-bookworm-slim AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+RUN corepack enable
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY apps/web/package.json ./apps/web/
+COPY packages/shared-types/package.json ./packages/shared-types/
+RUN pnpm install --frozen-lockfile --prod
+
+COPY --from=builder /app/apps/web/.next ./apps/web/.next
+COPY --from=builder /app/apps/web/next.config.mjs ./apps/web/next.config.mjs
+
+WORKDIR /app/apps/web
+EXPOSE 3000
+CMD ["node", "node_modules/.bin/next", "start", "-p", "3000"]

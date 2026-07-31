@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+.git
+**/.next
+**/dist
+**/build
+coverage
+**/coverage
+.env
+.env.*
+!.env.example
+*.log
+docker/data
+Dockerfile*

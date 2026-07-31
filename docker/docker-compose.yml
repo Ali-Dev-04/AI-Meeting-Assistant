@@ -1,0 +1,109 @@
+# Full local stack. Run: docker compose -f docker/docker-compose.yml up --build
+# For dev HMR you can run just the infra: docker compose -f docker/docker-compose.yml up postgres redis minio
+name: ai-meeting-assistant
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ama
+      POSTGRES_PASSWORD: ama
+      POSTGRES_DB: ama
+    ports: ['5432:5432']
+    volumes: ['pgdata:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ama']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ['6379:6379']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports: ['9000:9000', '9001:9001']
+    volumes: ['miniodata:/data']
+
+  # One-shot: create the media bucket MinIO expects.
+  minio-init:
+    image: minio/mc
+    depends_on: ['minio']
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3;
+      mc alias set local http://minio:9000 minioadmin minioadmin;
+      mc mb local/ama-media || true;
+      "
+
+  # Self-hosted AI backends. NOTE: the exact API path must match the providers in
+  # infrastructure/ai/* (see docs/ai-workflows.md). Swap images to your preferred servers.
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:v1
+    environment:
+      ASR_MODEL: base
+    ports: ['8080:5000']
+
+  embeddings:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.5
+    environment:
+      MODEL_ID: BAAI/bge-small-en-v1.5
+    ports: ['8081:80']
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.app
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql://ama:ama@postgres:5432/ama?schema=public
+      DIRECT_URL: postgresql://ama:ama@postgres:5432/ama?schema=public
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+      STT_ENDPOINT: http://whisper:5000
+      EMBEDDING_ENDPOINT: http://embeddings:80
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_started }
+    ports: ['4000:4000']
+
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.app
+    command: ['node', 'apps/api/dist/worker.js']
+    env_file: ../.env
+    environment:
+      DATABASE_URL: postgresql://ama:ama@postgres:5432/ama?schema=public
+      DIRECT_URL: postgresql://ama:ama@postgres:5432/ama?schema=public
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+      STT_ENDPOINT: http://whisper:5000
+      EMBEDDING_ENDPOINT: http://embeddings:80
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.web
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:4000/api/v1
+    depends_on: ['api']
+    ports: ['3000:3000']
+
+volumes:
+  pgdata:
+  miniodata:

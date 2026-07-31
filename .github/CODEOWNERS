@@ -1,0 +1,11 @@
+# Codeowners — GitHub auto-requests review from these people/teams.
+# Replace @your-handle with the real GitHub user/team(s).
+# Syntax: <path-pattern> <owner> [<owner> ...>
+
+*                          @your-handle
+
+# Sensitive areas — require extra eyes
+/.github/                  @your-handle
+/docs/                     @your-handle
+/apps/api/src/modules/auth/    @your-handle
+/apps/api/src/modules/billing/ @your-handle

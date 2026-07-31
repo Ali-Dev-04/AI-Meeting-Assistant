@@ -1,0 +1,15 @@
+# Issue template configuration
+# Disables blank issues so reporters use structured forms,
+# and adds quick links for common non-issue requests.
+
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/your-org/ai-meeting-assistant/tree/main/docs
+    about: Read the PRD, architecture, and guides before opening an issue.
+  - name: 💬 Discussions / Questions
+    url: https://github.com/your-org/ai-meeting-assistant/discussions
+    about: Ask questions and share ideas in Discussions (not Issues).
+  - name: 🔐 Security report
+    url: https://github.com/your-org/ai-meeting-assistant/security/policy
+    about: Found a vulnerability? Report it privately, not via a public issue.
