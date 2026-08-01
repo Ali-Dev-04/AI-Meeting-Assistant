@@ -11,6 +11,10 @@ RUN pnpm install --frozen-lockfile
 
 COPY apps/api ./apps/api
 COPY packages/shared-types ./packages/shared-types
+COPY tsconfig.base.json ./
+
+# API resolves @ama/shared-types from its compiled dist (CommonJS) — build it first.
+RUN pnpm --filter @ama/shared-types build
 
 # Generate the Prisma client, then compile.
 RUN pnpm --filter @ama/api prisma:generate
@@ -27,10 +31,11 @@ COPY apps/api/package.json ./apps/api/
 COPY packages/shared-types/package.json ./packages/shared-types/
 RUN pnpm install --frozen-lockfile --prod
 
-# Built code + schema + generated Prisma client.
+# Built code + schema + generated Prisma client + shared-types dist (required at runtime).
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
 COPY --from=builder /app/apps/api/node_modules/.prisma ./apps/api/node_modules/.prisma
+COPY --from=builder /app/packages/shared-types/dist ./packages/shared-types/dist
 
 EXPOSE 4000
 # Default = API; the worker overrides CMD in docker-compose.
