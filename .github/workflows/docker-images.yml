@@ -34,15 +34,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # GHCR requires lowercase repository names; github.repository preserves case (e.g. "Ali-Dev-04/...").
+      - name: Resolve lowercase image name
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
       - name: Build & push
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
-          # Repository name must be lowercase for GHCR.
           tags: |
-            ghcr.io/${{ github.repository }}/${{ matrix.target }}:latest
-            ghcr.io/${{ github.repository }}/${{ matrix.target }}:${{ github.sha }}
+            ${{ env.IMAGE }}/${{ matrix.target }}:latest
+            ${{ env.IMAGE }}/${{ matrix.target }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

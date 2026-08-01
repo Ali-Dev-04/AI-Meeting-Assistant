@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Check, Copy, Link2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import type { ShareLink, ShareRole } from '@ama/shared-types';
+import type { ShareRole } from '@ama/shared-types';
 import { useCreateShareLink, useRevokeShareLink, useShareLinks } from '@/lib/api/meetings';
 import {
   Dialog,

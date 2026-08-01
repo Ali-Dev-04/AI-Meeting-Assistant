@@ -13,7 +13,6 @@ import {
 } from '@ama/shared-types';
 import { AuthUser} from '../auth/decorators/current-user.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Public } from '../auth/decorators/public.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { createMeetingRequestSchema, toMeetingDto } from './meetings.dto';
 import { MeetingsService } from './meetings.service';

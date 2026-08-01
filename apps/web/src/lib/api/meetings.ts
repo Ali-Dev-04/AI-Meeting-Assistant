@@ -7,7 +7,6 @@ import type {
   ActionItem,
   ActionItemStatus,
   Comment,
-  CommentType,
   CreateCommentRequest,
   CreateMeetingRequest,
   CreateMeetingResponse,
