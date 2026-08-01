@@ -12,6 +12,8 @@ COPY apps/web ./apps/web
 COPY packages/shared-types ./packages/shared-types
 # apps/web/tsconfig.json (and shared-types') extend the root base config — copy it.
 COPY tsconfig.base.json ./
+# Next resolves @ama/shared-types to its compiled dist — build it first.
+RUN pnpm --filter @ama/shared-types build
 RUN pnpm --filter @ama/web build
 
 # --- runtime: prod deps + built .next, run via `next start` ---
