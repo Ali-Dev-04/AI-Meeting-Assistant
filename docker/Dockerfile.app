@@ -31,10 +31,11 @@ COPY apps/api/package.json ./apps/api/
 COPY packages/shared-types/package.json ./packages/shared-types/
 RUN pnpm install --frozen-lockfile --prod
 
-# Built code + schema + generated Prisma client + shared-types dist (required at runtime).
+# Built code + schema + generated Prisma client (pnpm generates it at the workspace root)
+# + shared-types dist (the API require()s it at runtime).
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
-COPY --from=builder /app/apps/api/node_modules/.prisma ./apps/api/node_modules/.prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/packages/shared-types/dist ./packages/shared-types/dist
 
 EXPOSE 4000
