@@ -20,23 +20,23 @@ RUN pnpm --filter @ama/shared-types build
 RUN pnpm --filter @ama/api prisma:generate
 RUN pnpm --filter @ama/api build
 
-# --- runtime: lean image, prod deps only ---
+# --- runtime ---
+# Copy the builder's node_modules verbatim (pnpm store + symlinks) so the generated
+# Prisma client, bcrypt native binding, and shared-types dist all resolve at runtime.
+# (A separate --prod reinstall breaks on pnpm's virtual-store layout + husky's prepare.)
 FROM node:20-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
-RUN corepack enable
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY apps/api/package.json ./apps/api/
-COPY packages/shared-types/package.json ./packages/shared-types/
-RUN pnpm install --frozen-lockfile --prod
+COPY --from=builder /app/package.json /app/pnpm-workspace.yaml /app/pnpm-lock.yaml ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
+COPY --from=builder /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=builder /app/packages/shared-types ./packages/shared-types
 
-# Built code + schema + generated Prisma client (pnpm generates it at the workspace root)
-# + shared-types dist (the API require()s it at runtime).
+# Built API + Prisma schema.
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/packages/shared-types/dist ./packages/shared-types/dist
 
 EXPOSE 4000
 # Default = API; the worker overrides CMD in docker-compose.
