@@ -1,6 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { MeetingStatus } from '@prisma/client';
-import { env } from '../../config/env';
 import { IEmbeddingProvider } from '../../infrastructure/ai/embeddings/embeddings.types';
 import { EMBEDDING_PROVIDER } from '../../infrastructure/ai/embeddings/embeddings.types';
 import { ILLMProvider, InsightsResult } from '../../infrastructure/ai/llm/llm.types';
@@ -8,7 +7,7 @@ import { LLM_PROVIDER } from '../../infrastructure/ai/llm/llm.types';
 import { ISTTProvider} from '../../infrastructure/ai/stt/stt.types';
 import { STT_PROVIDER } from '../../infrastructure/ai/stt/stt.types';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
-import { StorageService } from '../../infrastructure/storage/storage.service';
+import { IStorage, STORAGE } from '../../infrastructure/storage/storage.types';
 import { UsageService } from '../billing/usage.service';
 
 const TARGET_WORDS_PER_CHUNK = 230;
@@ -31,7 +30,7 @@ export class PipelineService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: StorageService,
+    @Inject(STORAGE) private readonly storage: IStorage,
     private readonly usage: UsageService,
     @Inject(STT_PROVIDER) private readonly stt: ISTTProvider,
     @Inject(LLM_PROVIDER) private readonly llm: ILLMProvider,
@@ -131,7 +130,8 @@ export class PipelineService {
         meetingId,
         overview: insights.overview,
         keyPoints: insights.keyPoints,
-        model: env.ANTHROPIC_MODEL,
+        // Record whichever LLM actually produced the insights (OpenRouter, Anthropic, …).
+        model: this.llm.modelName,
         promptVersion: '1',
       },
     });

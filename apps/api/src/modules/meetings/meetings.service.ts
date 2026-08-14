@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { ActionItemStatus, MeetingStatus } from '@prisma/client';
 import { ALLOWED_UPLOAD_MIME, MAX_UPLOAD_BYTES, type CreateCommentRequest, type CreateMeetingRequest, type CreateShareLinkRequest, type SharedMeetingView } from '@ama/shared-types';
@@ -6,7 +6,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from '../../common/err
 import { env } from '../../config/env';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
 import { QueueService } from '../../infrastructure/queue/queue.service';
-import { StorageService } from '../../infrastructure/storage/storage.service';
+import { IStorage, STORAGE } from '../../infrastructure/storage/storage.types';
 import { UsageService } from '../billing/usage.service';
 import { WorkspacesService } from '../workspaces/workspaces.service';
 import { toMeetingDto } from './meetings.dto';
@@ -17,7 +17,7 @@ export class MeetingsService {
     private readonly prisma: PrismaService,
     private readonly workspaces: WorkspacesService,
     private readonly usage: UsageService,
-    private readonly storage: StorageService,
+    @Inject(STORAGE) private readonly storage: IStorage,
     private readonly queue: QueueService,
   ) {}
 

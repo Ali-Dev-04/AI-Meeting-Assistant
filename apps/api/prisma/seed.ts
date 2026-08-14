@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import { embedTextsLocally } from '../src/infrastructure/ai/embeddings/local-embeddings';
 
 /**
  * Development demo seed. Idempotent: upserts the workspace + users, then WIPES the
@@ -291,6 +292,40 @@ async function main() {
           transcriptSegmentId: c.segIndex != null ? segmentIds[c.segIndex] : null,
         },
       });
+    }
+
+    // Index for semantic search + chat RAG: chunk the transcript (same ~230-word
+    // packing as the processing pipeline) and store locally-computed vectors.
+    const chunks: Array<{ start: number; end: number; text: string; words: number }> = [];
+    let current: { start: number; end: number; text: string; words: number } | null = null;
+    for (const [i, s] of spec.segments.entries()) {
+      const words = s.text.trim().split(/\s+/).length;
+      if (!current) {
+        current = { start: i, end: i, text: s.text, words };
+      } else {
+        current.end = i;
+        current.text += ' ' + s.text;
+        current.words += words;
+      }
+      if (current.words >= 230) {
+        chunks.push(current);
+        current = null;
+      }
+    }
+    if (current) chunks.push(current);
+
+    const vectors = embedTextsLocally(chunks.map((c) => c.text), 384);
+    for (const [i, chunk] of chunks.entries()) {
+      const vector = vectors[i];
+      if (!vector) continue;
+      // Raw SQL: the `embedding` column is Unsupported("vector") in Prisma.
+      await prisma.$executeRaw`
+        INSERT INTO embedding_chunks
+          (id, meeting_id, start_segment_index, end_segment_index, text, token_count, embedding, created_at)
+        VALUES
+          (gen_random_uuid(), ${spec.id}, ${chunk.start}, ${chunk.end},
+           ${chunk.text}, ${Math.round(chunk.words * 1.3)}, ${`[${vector.join(',')}]`}::vector, NOW())
+      `;
     }
   }
 

@@ -43,6 +43,9 @@ Thumbs.db
 # Docker
 docker/data/
 
+# Local object storage (STORAGE_PROVIDER=local)
+apps/api/data/
+
 # Misc
 .cache/
 *.local

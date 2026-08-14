@@ -7,6 +7,13 @@ process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test?schema=pu
 process.env.REDIS_URL = 'redis://localhost:6379';
 process.env.JWT_ACCESS_SECRET = 'test-access-secret-0123456789';
 process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-0123456789';
+// Built-in providers (no services needed).
+process.env.STORAGE_PROVIDER = 'local';
+process.env.STT_PROVIDER = 'demo';
+process.env.EMBEDDING_PROVIDER = 'local';
+process.env.LLM_PROVIDER = 'openrouter';
+process.env.OPENROUTER_API_KEY = 'test-key';
+// Legacy service endpoints (optional now — kept for provider-switch coverage).
 process.env.S3_ENDPOINT = 'http://localhost:9000';
 process.env.S3_BUCKET = 'test';
 process.env.S3_ACCESS_KEY_ID = 'test';
