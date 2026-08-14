@@ -13,12 +13,16 @@ const RESET = '\x1b[0m';
  * One-command dev: builds shared-types (the API consumes its compiled dist), then
  * starts the API, web, and worker together with prefixed, colorized output.
  * Ctrl+C stops everything. Zero dependencies.
+ *
+ * Runs every script through `npm run` with the app's own cwd, so it works in any
+ * terminal even without pnpm on PATH (dependencies themselves are installed with
+ * pnpm — see README; do NOT use npm to install deps).
  */
 
 // 1) shared-types dist must exist before the API compiles/runs.
 console.log('[setup] building @ama/shared-types …');
-const build = spawnSync('pnpm', ['--filter', '@ama/shared-types', 'build'], {
-  cwd: root,
+const build = spawnSync('npm', ['run', 'build'], {
+  cwd: path.join(root, 'packages', 'shared-types'),
   shell: true,
   stdio: 'inherit',
 });
@@ -27,17 +31,20 @@ if (build.status !== 0) {
   process.exit(build.status ?? 1);
 }
 
-// 2) Start the three dev processes.
+// 2) Start the three dev processes (npm run <script> inside each app's folder).
 const targets = [
-  { name: 'api', color: CYAN, args: ['--filter', '@ama/api', 'dev'] },
-  { name: 'web', color: MAGENTA, args: ['--filter', '@ama/web', 'dev'] },
-  { name: 'worker', color: YELLOW, args: ['--filter', '@ama/api', 'dev:worker'] },
+  { name: 'api', color: CYAN, cwd: 'apps/api', script: 'dev' },
+  { name: 'web', color: MAGENTA, cwd: 'apps/web', script: 'dev' },
+  { name: 'worker', color: YELLOW, cwd: 'apps/api', script: 'dev:worker' },
 ];
 
 const children = [];
 
-for (const { name, color, args } of targets) {
-  const child = spawn('pnpm', args, { cwd: root, shell: true });
+for (const { name, color, cwd, script } of targets) {
+  const child = spawn('npm', ['run', script], {
+    cwd: path.join(root, cwd),
+    shell: true,
+  });
   const prefix = `${color}[${name}]${RESET}`;
   const pipe = (stream, log) => {
     stream.on('data', (chunk) => {
