@@ -20,6 +20,14 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   prettierConfig,
   {
+    // Plain-Node CLI scripts (e.g. scripts/dev.mjs): Node globals + console are expected.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: { console: 'readonly', process: 'readonly', setTimeout: 'readonly' },
+    },
+    rules: { 'no-console': 'off' },
+  },
+  {
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       // NOTE: `consistent-type-imports` is intentionally DISABLED. It forces `import type`
