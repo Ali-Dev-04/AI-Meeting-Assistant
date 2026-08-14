@@ -15,6 +15,7 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { env } from '../../config/env';
+import { Public } from '../../modules/auth/decorators/public.decorator';
 import { verifySignature } from './local.provider';
 
 const UPLOADS_PREFIX = '/api/v1/uploads/';
@@ -34,6 +35,11 @@ const CONTENT_TYPES: Record<string, string> = {
  * HMAC signature embedded in the "presigned" URL — exactly like S3 presigned URLs,
  * so the web upload flow and pipeline download work unchanged.
  */
+/**
+ * @Public(): presigned-style uploads/downloads never carry a JWT (the browser PUTs
+ * directly, as it would to S3) — the HMAC signature + expiry ARE the auth.
+ */
+@Public()
 @Controller('uploads')
 export class UploadsController {
   @Put('*')

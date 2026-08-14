@@ -47,6 +47,11 @@ export class PipelineService {
     if (!media) throw new Error(`No media attached to meeting ${meetingId}`);
 
     try {
+      // Idempotency: BullMQ retries re-run the whole pipeline — wipe any partial
+      // artifacts from a previous attempt so unique constraints (transcript per
+      // meeting) hold and results are never duplicated.
+      await this.clearArtifacts(meetingId);
+
       // 1) TRANSCRIBE
       await this.setStatus(meetingId, 'TRANSCRIBING');
       const audio = await this.download(media.originalStorageKey);
@@ -117,6 +122,15 @@ export class PipelineService {
     }
   }
 
+  private async clearArtifacts(meetingId: string): Promise<void> {
+    await this.prisma.embeddingChunk.deleteMany({ where: { meetingId } });
+    await this.prisma.actionItem.deleteMany({ where: { meetingId } });
+    await this.prisma.decision.deleteMany({ where: { meetingId } });
+    await this.prisma.topic.deleteMany({ where: { meetingId } });
+    await this.prisma.summary.deleteMany({ where: { meetingId } });
+    await this.prisma.transcript.deleteMany({ where: { meetingId } });
+  }
+
   private async download(storageKey: string): Promise<Buffer> {
     const url = await this.storage.getPresignedGetUrl(storageKey);
     const response = await fetch(url);
@@ -184,9 +198,11 @@ export class PipelineService {
   private async insertEmbedding(meetingId: string, chunk: ChunkDraft, vector: number[]): Promise<void> {
     const vectorLiteral = `[${vector.join(',')}]`;
     const tokenEstimate = Math.round(countWords(chunk.text) * 1.3);
+    // NOTE: the table's columns are camelCase (Prisma fields have no @map), so they
+    // must be double-quoted in raw SQL — unquoted identifiers fold to lowercase.
     await this.prisma.$executeRaw`
       INSERT INTO embedding_chunks
-        (id, meeting_id, start_segment_index, end_segment_index, text, token_count, embedding, created_at)
+        (id, "meetingId", "startSegmentIndex", "endSegmentIndex", text, "tokenCount", embedding, "createdAt")
       VALUES
         (gen_random_uuid(), ${meetingId}, ${chunk.startSegmentIndex}, ${chunk.endSegmentIndex},
          ${chunk.text}, ${tokenEstimate}, ${vectorLiteral}::vector, NOW())

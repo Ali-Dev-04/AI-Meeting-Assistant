@@ -44,7 +44,7 @@ const schema = z
     // LLM: OpenRouter (OpenAI-compatible aggregator) or Anthropic.
     LLM_PROVIDER: z.enum(['openrouter', 'anthropic']).default('openrouter'),
     OPENROUTER_API_KEY: z.string().optional(),
-    OPENROUTER_MODEL: z.string().default('meta-llama/llama-3.3-70b-instruct:free'),
+    OPENROUTER_MODEL: z.string().default('openai/gpt-oss-20b:free'),
     ANTHROPIC_API_KEY: z.string().optional(),
     ANTHROPIC_MODEL: z.string().default('claude-sonnet-5'),
 

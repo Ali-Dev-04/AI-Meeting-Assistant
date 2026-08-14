@@ -108,9 +108,9 @@ export class ChatService {
     if (!vector) return [];
     const vectorLiteral = `[${vector.join(',')}]`;
     const rows = await this.prisma.$queryRaw<Array<{ text: string; segment_index: number }>>`
-      SELECT text, start_segment_index AS segment_index
+      SELECT text, "startSegmentIndex" AS segment_index
       FROM embedding_chunks
-      WHERE meeting_id = ${meetingId}
+      WHERE "meetingId" = ${meetingId}
       ORDER BY embedding <=> ${vectorLiteral}::vector
       LIMIT 5`;
     return rows.map((row) => ({ text: row.text, segmentIndex: row.segment_index }));

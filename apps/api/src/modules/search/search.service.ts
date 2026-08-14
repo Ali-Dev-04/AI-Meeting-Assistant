@@ -46,12 +46,12 @@ export class SearchService {
   private async semantic(workspaceId: string, vector: number[]): Promise<SearchResult[]> {
     const vectorLiteral = `[${vector.join(',')}]`;
     const rows = await this.prisma.$queryRaw<VectorRow[]>`
-      SELECT m.id AS meeting_id, m.title, m.occurred_at, ec.text,
-             ec.start_segment_index AS segment_index,
+      SELECT m.id AS meeting_id, m.title, m."occurredAt" AS occurred_at, ec.text,
+             ec."startSegmentIndex" AS segment_index,
              (1 - (ec.embedding <=> ${vectorLiteral}::vector)) AS score
       FROM embedding_chunks ec
-      JOIN meetings m ON m.id = ec.meeting_id
-      WHERE m.workspace_id = ${workspaceId} AND m.deleted_at IS NULL
+      JOIN meetings m ON m.id = ec."meetingId"
+      WHERE m."workspaceId" = ${workspaceId} AND m."deletedAt" IS NULL
       ORDER BY ec.embedding <=> ${vectorLiteral}::vector
       LIMIT 20`;
 

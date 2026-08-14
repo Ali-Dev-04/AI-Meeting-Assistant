@@ -318,10 +318,11 @@ async function main() {
     for (const [i, chunk] of chunks.entries()) {
       const vector = vectors[i];
       if (!vector) continue;
-      // Raw SQL: the `embedding` column is Unsupported("vector") in Prisma.
+      // Raw SQL: the `embedding` column is Unsupported("vector") in Prisma. Columns are
+      // camelCase (no @map in the schema) so they must be double-quoted in raw SQL.
       await prisma.$executeRaw`
         INSERT INTO embedding_chunks
-          (id, meeting_id, start_segment_index, end_segment_index, text, token_count, embedding, created_at)
+          (id, "meetingId", "startSegmentIndex", "endSegmentIndex", text, "tokenCount", embedding, "createdAt")
         VALUES
           (gen_random_uuid(), ${spec.id}, ${chunk.start}, ${chunk.end},
            ${chunk.text}, ${Math.round(chunk.words * 1.3)}, ${`[${vector.join(',')}]`}::vector, NOW())
