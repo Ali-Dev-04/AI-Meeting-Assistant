@@ -67,6 +67,17 @@ export interface Topic {
   startTimeMs: number | null;
 }
 
+/** In-app notification (bell). The stored JSON payload is flattened for the client. */
+export interface AppNotification {
+  id: string;
+  /** 'meeting.ready' | 'task.assigned' | 'meeting.shared' */
+  type: string;
+  title: string;
+  meetingId: string | null;
+  createdAt: string;
+  readAt: string | null;
+}
+
 export interface TranscriptSegment {
   id: string;
   index: number;

@@ -111,6 +111,17 @@ export class PipelineService {
       this.logger.log(
         `Meeting ${meetingId} ready — ${segments.length} segments, ${chunks.length} chunks`,
       );
+
+      // Bell notification for the owner — best-effort, never fails the pipeline.
+      await this.prisma.notification
+        .create({
+          data: {
+            userId: meeting.ownerId,
+            type: 'meeting.ready',
+            payload: { title: `"${meeting.title}" is ready`, meetingId },
+          },
+        })
+        .catch(() => undefined);
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'Unknown error';
       this.logger.error(`Pipeline failed for meeting ${meetingId}: ${reason}`);

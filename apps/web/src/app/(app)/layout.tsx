@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { AppSidebar } from '@/components/layout/app-sidebar';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
 import { CommandPalette } from '@/components/layout/command-palette';
+import { NotificationBell } from '@/components/layout/notification-bell';
 
 /**
  * Authenticated app shell: sidebar nav + top bar (search trigger, theme toggle,
@@ -50,6 +51,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </Button>
 
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <ThemeToggle />
             {user && (
               <span className="hidden text-sm text-muted-foreground sm:inline">{user.email}</span>

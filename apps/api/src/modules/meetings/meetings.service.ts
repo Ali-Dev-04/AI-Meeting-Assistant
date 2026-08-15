@@ -199,6 +199,23 @@ export class MeetingsService {
     }
 
     const updated = await this.prisma.actionItem.update({ where: { id: itemId }, data });
+
+    // Bell notification for a newly-assigned user (not for re-assigning to the same person).
+    if (patch.assigneeUserId && patch.assigneeUserId !== item.assigneeUserId) {
+      await this.prisma.notification
+        .create({
+          data: {
+            userId: patch.assigneeUserId,
+            type: 'task.assigned',
+            payload: {
+              title: `You were assigned: ${updated.text.slice(0, 80)}`,
+              meetingId,
+            },
+          },
+        })
+        .catch(() => undefined);
+    }
+
     return {
       id: updated.id,
       meetingId,
@@ -327,7 +344,7 @@ export class MeetingsService {
   }
 
   async createShareLink(meetingId: string, data: CreateShareLinkRequest, userId: string) {
-    await this.getForUser(meetingId, userId);
+    const meeting = await this.getForUser(meetingId, userId);
     const token = randomUUID();
     const expiresAt = data.expiresInDays
       ? new Date(Date.now() + data.expiresInDays * 86_400_000)
@@ -335,6 +352,24 @@ export class MeetingsService {
     const link = await this.prisma.shareLink.create({
       data: { meetingId, createdById: userId, role: data.role, token, expiresAt },
     });
+
+    // Tell the rest of the workspace a share link exists (best-effort).
+    const members = await this.prisma.workspaceMember.findMany({
+      where: { workspaceId: meeting.workspaceId, status: 'ACTIVE' },
+      select: { userId: true },
+    });
+    for (const member of members.filter((m) => m.userId !== userId)) {
+      await this.prisma.notification
+        .create({
+          data: {
+            userId: member.userId,
+            type: 'meeting.shared',
+            payload: { title: `${meeting.title} was shared via link`, meetingId },
+          },
+        })
+        .catch(() => undefined);
+    }
+
     return this.toShareLinkDto(link);
   }
 

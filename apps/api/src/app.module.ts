@@ -13,6 +13,7 @@ import { MeetingsModule } from './modules/meetings/meetings.module';
 import { SearchModule } from './modules/search/search.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { TasksModule } from './modules/tasks/tasks.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { StorageModule } from './infrastructure/storage/storage.module';
 import { CacheModule } from './infrastructure/cache/cache.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
@@ -37,6 +38,7 @@ import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
     SearchModule,
     ChatModule,
     TasksModule,
+    NotificationsModule,
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
