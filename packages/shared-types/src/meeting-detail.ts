@@ -59,6 +59,14 @@ export interface Decision {
   createdAt: string;
 }
 
+/** A detected topic/chapter within a meeting (startMs anchors it in the transcript). */
+export interface Topic {
+  id: string;
+  label: string;
+  summary: string | null;
+  startTimeMs: number | null;
+}
+
 export interface TranscriptSegment {
   id: string;
   index: number;

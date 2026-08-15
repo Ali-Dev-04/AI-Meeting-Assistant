@@ -224,6 +224,21 @@ export class MeetingsService {
     }));
   }
 
+  /** Detected topics/chapters (extracted by the LLM), ordered for display. */
+  async getTopics(meetingId: string, userId: string) {
+    await this.getForUser(meetingId, userId);
+    const topics = await this.prisma.topic.findMany({
+      where: { meetingId },
+      orderBy: { sortOrder: 'asc' },
+    });
+    return topics.map((t) => ({
+      id: t.id,
+      label: t.label,
+      summary: t.summary,
+      startTimeMs: t.startTimeMs,
+    }));
+  }
+
   async getComments(meetingId: string, userId: string) {
     await this.getForUser(meetingId, userId);
     const comments = await this.prisma.comment.findMany({

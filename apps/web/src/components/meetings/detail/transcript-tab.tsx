@@ -9,6 +9,7 @@ import {
   useDeleteComment,
   useMeetingComments,
   useMeetingPlayback,
+  useMeetingTopics,
   useMeetingTranscript,
 } from '@/lib/api/meetings';
 import { useCurrentUser } from '@/lib/api/auth';
@@ -34,6 +35,7 @@ interface TranscriptTabProps {
 export function TranscriptTab({ meetingId, seekIndex, onSeekConsumed }: TranscriptTabProps) {
   const { data: transcript, isLoading } = useMeetingTranscript(meetingId);
   const { data: playback } = useMeetingPlayback(meetingId);
+  const { data: topics } = useMeetingTopics(meetingId);
   const { data: user } = useCurrentUser();
   const audioRef = useRef<HTMLAudioElement>(null);
   const composeRef = useRef<HTMLTextAreaElement>(null);
@@ -97,6 +99,39 @@ export function TranscriptTab({ meetingId, seekIndex, onSeekConsumed }: Transcri
           className="w-full"
           onTimeUpdate={(e) => setCurrentTimeMs(e.currentTarget.currentTime * 1000)}
         />
+      )}
+
+      {topics && topics.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-xs font-medium text-muted-foreground">Chapters:</span>
+          {topics.map((topic) => (
+            <button
+              key={topic.id}
+              type="button"
+              title={topic.summary ?? undefined}
+              onClick={() => {
+                // Seek to the chapter and flash the segment it lands in.
+                const start = topic.startTimeMs;
+                if (start != null) {
+                  const target = segments.find((s) => s.startTimeMs <= start && s.endTimeMs > start);
+                  if (target) {
+                    jumpToSegment(target.id);
+                  } else {
+                    seekTo(start);
+                  }
+                }
+              }}
+              className="rounded-full border px-2.5 py-1 text-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {topic.startTimeMs != null && (
+                <span className="mr-1 tabular-nums text-muted-foreground">
+                  {formatTimestamp(topic.startTimeMs)}
+                </span>
+              )}
+              {topic.label}
+            </button>
+          ))}
+        </div>
       )}
 
       <div className="max-h-[55vh] space-y-1 overflow-y-auto pr-1">

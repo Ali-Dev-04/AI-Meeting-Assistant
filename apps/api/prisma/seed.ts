@@ -50,6 +50,7 @@ interface MeetingSpec {
   actions: ActionSpec[];
   decisions: { text: string; context?: string }[];
   comments?: CommentSpec[];
+  topics?: Array<{ label: string; summary?: string; startTimeMs: number }>;
 }
 
 async function main() {
@@ -120,6 +121,11 @@ async function main() {
         { body: 'This is the key decision — lets make sure leadership signs off.', author: member, type: 'HIGHLIGHT', segIndex: 3 },
         { body: 'I will share a draft by Thursday.', author: admin, segIndex: 1 },
       ],
+      topics: [
+        { label: 'Pricing model', summary: 'Choosing between usage-based and predictable tiers.', startTimeMs: 0 },
+        { label: 'Customer validation', startTimeMs: 12000 },
+        { label: 'Launch plan', summary: 'Tier drafting, validation, and the Aug 15 target.', startTimeMs: 19000 },
+      ],
     },
     {
       id: 'a1a1a1a1-0002-4000-8000-000000000002',
@@ -143,6 +149,11 @@ async function main() {
       ],
       decisions: [{ text: 'Prioritize SSO for the next release.', context: 'Blocking multiple enterprise deals.' }],
       comments: [{ body: 'The SSO quote at 0:06 is gold for the roadmap pitch.', author: owner, type: 'HIGHLIGHT', segIndex: 1 }],
+      topics: [
+        { label: 'Pain points', summary: 'Onboarding churn and support load.', startTimeMs: 0 },
+        { label: 'SSO demand', startTimeMs: 6000 },
+        { label: 'Analytics ask', startTimeMs: 16000 },
+      ],
     },
     {
       id: 'a1a1a1a1-0003-4000-8000-000000000003',
@@ -166,6 +177,11 @@ async function main() {
       ],
       decisions: [{ text: 'Freeze deploys on Friday.', context: 'Protect the migration cutover window.' }],
       comments: [],
+      topics: [
+        { label: 'DB migration', startTimeMs: 0 },
+        { label: 'Incident postmortem', startTimeMs: 7000 },
+        { label: 'Hiring', startTimeMs: 14000 },
+      ],
     },
     {
       id: 'a1a1a1a1-0004-4000-8000-000000000004',
@@ -189,6 +205,10 @@ async function main() {
       ],
       decisions: [{ text: 'Ship three pricing tiers.', context: 'Aligns with the usage-based model.' }],
       comments: [],
+      topics: [
+        { label: 'Tier structure', startTimeMs: 0 },
+        { label: 'Enterprise terms', summary: 'Custom terms pending legal review.', startTimeMs: 13000 },
+      ],
     },
     {
       id: 'a1a1a1a1-0005-4000-8000-000000000005',
@@ -208,6 +228,10 @@ async function main() {
       actions: [{ text: 'Share the OKR deck with the company', assignee: owner, dueOffsetDays: 2, status: 'OPEN' }],
       decisions: [],
       comments: [{ body: 'NPS milestone worth celebrating in the next note.', author: member, segIndex: 1 }],
+      topics: [
+        { label: 'Company update', summary: 'ARR, hiring, and NPS highlights.', startTimeMs: 0 },
+        { label: 'NPS & onboarding', startTimeMs: 8000 },
+      ],
     },
     {
       id: 'a1a1a1a1-0006-4000-8000-000000000006',
@@ -280,6 +304,12 @@ async function main() {
 
     for (const d of spec.decisions) {
       await prisma.decision.create({ data: { meetingId: spec.id, text: d.text, context: d.context } });
+    }
+
+    for (const [i, t] of (spec.topics ?? []).entries()) {
+      await prisma.topic.create({
+        data: { meetingId: spec.id, label: t.label, summary: t.summary ?? null, startTimeMs: t.startTimeMs, sortOrder: i },
+      });
     }
 
     for (const c of spec.comments ?? []) {

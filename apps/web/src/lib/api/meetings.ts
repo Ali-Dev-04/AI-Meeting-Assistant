@@ -21,6 +21,7 @@ import type {
   SharedMeetingView,
   Summary,
   Task,
+  Topic,
   Transcript,
 } from '@ama/shared-types';
 
@@ -47,6 +48,7 @@ export const meetingsApi = {
   playback: (id: string) => apiRequest<MeetingPlayback>(`/meetings/${id}/media`),
   actionItems: (id: string) => apiRequest<ActionItem[]>(`/meetings/${id}/action-items`),
   decisions: (id: string) => apiRequest<Decision[]>(`/meetings/${id}/decisions`),
+  topics: (id: string) => apiRequest<Topic[]>(`/meetings/${id}/topics`),
   comments: (id: string) => apiRequest<Comment[]>(`/meetings/${id}/comments`),
   createComment: (meetingId: string, data: CreateCommentRequest) =>
     apiRequest<Comment>(`/meetings/${meetingId}/comments`, { method: 'POST', body: data }),
@@ -155,6 +157,14 @@ export function useMeetingDecisions(id: string) {
   return useQuery({
     queryKey: ['meetings', 'decisions', id],
     queryFn: () => meetingsApi.decisions(id),
+    enabled: Boolean(id),
+  });
+}
+
+export function useMeetingTopics(id: string) {
+  return useQuery({
+    queryKey: ['meetings', 'topics', id],
+    queryFn: () => meetingsApi.topics(id),
     enabled: Boolean(id),
   });
 }

@@ -109,6 +109,12 @@ export class MeetingsController {
     return this.meetings.getDecisions(id, user.id);
   }
 
+  @Get(':id/topics')
+  @ApiOperation({ summary: 'List topics/chapters' })
+  topics(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.meetings.getTopics(id, user.id);
+  }
+
   @Get(':id/comments')
   @ApiOperation({ summary: 'List comments & highlights' })
   comments(@CurrentUser() user: AuthUser, @Param('id') id: string) {
