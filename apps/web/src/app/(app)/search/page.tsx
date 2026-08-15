@@ -2,20 +2,41 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Search as SearchIcon } from 'lucide-react';
-import type { SearchResult, SearchMode } from '@ama/shared-types';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Search as SearchIcon, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
+import type { AssistantSource, SearchResult, SearchMode } from '@ama/shared-types';
 import { useSearch } from '@/lib/api/search';
+import { streamAssistant } from '@/lib/api/assistant';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate } from '@/lib/utils';
 
-const MODES: SearchMode[] = ['hybrid', 'semantic', 'keyword'];
+/** UI mode: the three API search modes + the client-side "Ask AI" assistant. */
+type Mode = SearchMode | 'ask';
+
+const MODES: Mode[] = ['ask', 'hybrid', 'semantic', 'keyword'];
+
+const SEARCH_MODES: SearchMode[] = ['hybrid', 'semantic', 'keyword'];
 
 export default function SearchPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialMode = searchParams.get('mode');
+
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
-  const [mode, setMode] = useState<SearchMode>('hybrid');
+  const [mode, setMode] = useState<Mode>(
+    initialMode === 'ask' || SEARCH_MODES.includes(initialMode as SearchMode)
+      ? (initialMode as Mode)
+      : 'hybrid',
+  );
+
+  // Ask-AI state (streamed answer + cited meetings).
+  const [answer, setAnswer] = useState('');
+  const [sources, setSources] = useState<AssistantSource[]>([]);
+  const [asking, setAsking] = useState(false);
 
   // Debounce so we don't fire a search on every keystroke.
   useEffect(() => {
@@ -23,15 +44,40 @@ export default function SearchPage() {
     return () => clearTimeout(handle);
   }, [query]);
 
-  const { data, isFetching } = useSearch({ q: debounced, mode });
+  const isAsk = mode === 'ask';
+  // In Ask mode the API search stays dormant (empty q → useSearch disables itself).
+  const { data, isFetching } = useSearch({
+    q: isAsk ? '' : debounced,
+    mode: (isAsk ? 'hybrid' : mode) as SearchMode,
+  });
   const hasQuery = debounced.trim().length > 0;
+
+  function runAsk() {
+    const question = query.trim();
+    if (!question || asking) return;
+    setAnswer('');
+    setSources([]);
+    setAsking(true);
+    void streamAssistant(question, {
+      onToken: (delta) => setAnswer((current) => current + delta),
+      onSources: setSources,
+      onDone: () => setAsking(false),
+      onError: (message) => {
+        toast.error(message || 'Assistant failed.');
+        setAsking(false);
+      },
+    }).catch((error: unknown) => {
+      toast.error(error instanceof Error ? error.message : 'Assistant failed.');
+      setAsking(false);
+    });
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Search</h1>
         <p className="text-sm text-muted-foreground">
-          Find meetings by meaning, not just keywords.
+          Find meetings by meaning — or ask a question across all of them.
         </p>
       </div>
 
@@ -40,27 +86,71 @@ export default function SearchPage() {
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="e.g. pricing objections"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && isAsk) runAsk();
+          }}
+          placeholder={isAsk ? 'e.g. What did we decide about pricing?' : 'e.g. pricing objections'}
           className="pl-9"
           autoFocus
         />
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {MODES.map((m) => (
           <Button
             key={m}
             variant={mode === m ? 'default' : 'outline'}
             size="sm"
-            className="capitalize"
-            onClick={() => setMode(m)}
+            className={m === 'ask' ? 'capitalize' : 'capitalize'}
+            onClick={() => {
+              setMode(m);
+              if (m === 'ask') router.replace('/search?mode=ask');
+              else router.replace('/search');
+            }}
           >
-            {m}
+            {m === 'ask' && <Sparkles className="mr-1 h-3.5 w-3.5" />}
+            {m === 'ask' ? 'Ask AI' : m}
           </Button>
         ))}
+        {isAsk && (
+          <Button size="sm" onClick={runAsk} disabled={asking || query.trim().length === 0} className="ml-auto">
+            {asking ? 'Thinking…' : 'Ask'}
+          </Button>
+        )}
       </div>
 
-      {!hasQuery ? (
+      {isAsk ? (
+        <div className="space-y-4">
+          {asking && answer.length === 0 && <Skeleton className="h-24 w-full" />}
+          {answer.length > 0 && (
+            <div className="rounded-lg border bg-card p-4 text-sm leading-relaxed whitespace-pre-wrap">
+              {answer}
+              {asking && <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-primary align-middle" />}
+            </div>
+          )}
+          {sources.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Sources</p>
+              <div className="flex flex-wrap gap-2">
+                {sources.map((source, i) => (
+                  <Link
+                    key={`${source.meetingId}-${i}`}
+                    href={`/meetings/${source.meetingId}?tab=transcript`}
+                    className="rounded-full border px-3 py-1 text-xs transition-colors hover:bg-accent"
+                  >
+                    {source.title}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+          {!hasQuery && !asking && (
+            <p className="text-sm text-muted-foreground">
+              Ask anything about your meetings — answers cite the meetings they came from.
+            </p>
+          )}
+        </div>
+      ) : !hasQuery ? (
         <p className="text-sm text-muted-foreground">
           Start typing to search across all your meetings.
         </p>

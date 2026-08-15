@@ -25,6 +25,13 @@ export const askQuestionSchema = z.object({
 });
 export type AskQuestion = z.infer<typeof askQuestionSchema>;
 
+/** A meeting cited by a workspace-wide assistant answer. */
+export interface AssistantSource {
+  meetingId: string;
+  title: string;
+  segmentIndex: number;
+}
+
 /**
  * SSE event payloads sent by POST .../messages (text/event-stream).
  * See docs/api.md §8 for the wire format.

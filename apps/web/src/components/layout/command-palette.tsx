@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LayoutDashboard, Search, Settings, Upload } from 'lucide-react';
+import { LayoutDashboard, Search, Settings, Sparkles, Upload } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import {
   Command,
@@ -52,6 +52,10 @@ export function CommandPalette() {
               <CommandItem onSelect={() => go('/search')}>
                 <Search className="mr-2 h-4 w-4" aria-hidden />
                 Search meetings
+              </CommandItem>
+              <CommandItem onSelect={() => go('/search?mode=ask')}>
+                <Sparkles className="mr-2 h-4 w-4" aria-hidden />
+                Ask AI across meetings
               </CommandItem>
               <CommandItem onSelect={() => go('/settings')}>
                 <Settings className="mr-2 h-4 w-4" aria-hidden />
