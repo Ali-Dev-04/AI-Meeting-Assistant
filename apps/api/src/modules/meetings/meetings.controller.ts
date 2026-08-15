@@ -7,6 +7,8 @@ import {
   CreateMeetingRequest,
   CreateShareLinkRequest,
   createShareLinkSchema,
+  ImportMeetingRequest,
+  importMeetingSchema,
   UpdateActionItemRequest,
   updateActionItemSchema,
   UpdateSummaryRequest,
@@ -31,6 +33,16 @@ export class MeetingsController {
     @Body(new ZodValidationPipe(createMeetingRequestSchema)) body: CreateMeetingRequest,
   ) {
     return this.meetings.createUpload(body, user.id);
+  }
+
+  @Post('import')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Import a recording from a URL (Zoom/Meet link, direct file)' })
+  importFromUrl(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(importMeetingSchema)) body: ImportMeetingRequest,
+  ) {
+    return this.meetings.importFromUrl(body, user.id);
   }
 
   @Post(':id/complete')

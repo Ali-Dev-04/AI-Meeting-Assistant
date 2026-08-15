@@ -34,6 +34,19 @@ export const createMeetingSchema = z.object({
 });
 export type CreateMeetingValues = z.infer<typeof createMeetingSchema>;
 
+/** Import a recording from a URL (Zoom/Meet share link, direct media URL). */
+export const importMeetingSchema = z.object({
+  url: z
+    .string()
+    .url('Enter a valid URL')
+    .refine(
+      (value) => value.startsWith('https://') || /^http:\/\/(localhost|127\.0\.0\.1)/.test(value),
+      'URL must use https',
+    ),
+  title: z.string().trim().min(1).max(200).optional(),
+});
+export type ImportMeetingRequest = z.infer<typeof importMeetingSchema>;
+
 export interface CreateMeetingRequest {
   title: string;
   filename: string;

@@ -102,6 +102,16 @@ Pre-commit hooks (Husky) auto-format/lint staged files and enforce Conventional 
 | [`docs/CODING_STANDARDS.md`](./docs/CODING_STANDARDS.md) | How we write code |
 | [`docs/CONTRIBUTING.md`](./docs/CONTRIBUTING.md) | Git workflow, branches, commits, PRs |
 
+## Integrations
+
+### Import from URL
+
+Paste any direct recording URL — a Zoom cloud-recording share link with a downloadable file, a direct Google Drive link, or any `https://` audio/video URL — via **Upload meeting → Import from URL**. The API downloads it server-side (100 MB / 60 s caps), stores it through the configured storage provider, and runs the normal pipeline (transcribe → summarize → index). The title is optional; it defaults to the URL's host and file name.
+
+### Zoom / Google Meet (OAuth) — future connector
+
+For listing and auto-importing cloud recordings, the integration point is a provider module that (1) runs the OAuth code flow against Zoom/Google, (2) lists recordings, and (3) feeds each one into the same import path used above. The URL importer covers the manual workflow today.
+
 ## Contributing
 
 We use **trunk-based development**, **Conventional Commits**, and **small reviewed PRs**.

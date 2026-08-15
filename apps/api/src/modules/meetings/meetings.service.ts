@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { ActionItemStatus, MeetingStatus } from '@prisma/client';
-import { ALLOWED_UPLOAD_MIME, MAX_UPLOAD_BYTES, type CreateCommentRequest, type CreateMeetingRequest, type CreateShareLinkRequest, type SharedMeetingView } from '@ama/shared-types';
+import { ALLOWED_UPLOAD_MIME, MAX_UPLOAD_BYTES, type CreateCommentRequest, type CreateMeetingRequest, type CreateShareLinkRequest, type ImportMeetingRequest, type SharedMeetingView } from '@ama/shared-types';
 import { ForbiddenError, NotFoundError, ValidationError } from '../../common/errors';
 import { env } from '../../config/env';
 import { PrismaService } from '../../infrastructure/prisma/prisma.service';
@@ -10,6 +10,9 @@ import { IStorage, STORAGE } from '../../infrastructure/storage/storage.types';
 import { UsageService } from '../billing/usage.service';
 import { WorkspacesService } from '../workspaces/workspaces.service';
 import { toMeetingDto } from './meetings.dto';
+
+const MAX_IMPORT_BYTES = 100 * 1024 * 1024; // 100 MB
+const IMPORT_TIMEOUT_MS = 60_000;
 
 @Injectable()
 export class MeetingsService {
@@ -58,6 +61,71 @@ export class MeetingsService {
     const meeting = await this.getForUser(meetingId, userId);
     await this.usage.incrementMeetings(meeting.workspaceId);
     await this.queue.enqueueMeetingProcessing(meetingId);
+    return toMeetingDto(meeting);
+  }
+
+  /**
+   * Import a recording from a URL (Zoom/Meet share link, direct media URL):
+   * download server-side (capped), store via the storage provider, run the normal
+   * pipeline. Same quota rules as a manual upload.
+   */
+  async importFromUrl(input: ImportMeetingRequest, userId: string) {
+    const workspace = await this.workspaces.getActiveForUser(userId);
+    await this.usage.assertCanUpload(workspace);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), IMPORT_TIMEOUT_MS);
+    let response: Response;
+    try {
+      response = await fetch(input.url, { signal: controller.signal, redirect: 'follow' });
+    } catch (error) {
+      throw new ValidationError(
+        error instanceof Error && error.name === 'AbortError'
+          ? 'Download timed out after 60 seconds.'
+          : 'Could not reach that URL.',
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
+    if (!response.ok) {
+      throw new ValidationError(`The URL returned HTTP ${response.status}.`);
+    }
+
+    const declaredSize = Number(response.headers.get('content-length') ?? 0);
+    if (declaredSize > MAX_IMPORT_BYTES) {
+      throw new ValidationError('File exceeds the 100 MB import limit.');
+    }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length === 0) throw new ValidationError('The URL returned an empty file.');
+    if (buffer.length > MAX_IMPORT_BYTES) {
+      throw new ValidationError('File exceeds the 100 MB import limit.');
+    }
+    const contentType = response.headers.get('content-type')?.split(';')[0]?.trim() || 'audio/mpeg';
+
+    const meeting = await this.prisma.meeting.create({
+      data: {
+        workspaceId: workspace.id,
+        title: input.title?.trim() || defaultTitleFromUrl(input.url),
+        ownerId: userId,
+        sourceType: 'UPLOAD',
+        status: 'QUEUED',
+        occurredAt: new Date(),
+      },
+    });
+
+    const storageKey = `meetings/${meeting.id}/original`;
+    await this.storage.put(storageKey, buffer, contentType);
+    await this.prisma.meetingMedia.create({
+      data: {
+        meetingId: meeting.id,
+        originalStorageKey: storageKey,
+        mimeType: contentType,
+        sizeBytes: BigInt(buffer.length),
+      },
+    });
+
+    await this.usage.incrementMeetings(workspace.id);
+    await this.queue.enqueueMeetingProcessing(meeting.id);
     return toMeetingDto(meeting);
   }
 
@@ -558,6 +626,16 @@ function slugify(text: string): string {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'meeting'
   );
+}
+
+function defaultTitleFromUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const lastSegment = parsed.pathname.split('/').filter(Boolean).pop() ?? '';
+    return `${parsed.hostname}${lastSegment ? ` — ${lastSegment}` : ''}`.slice(0, 200);
+  } catch {
+    return 'Imported meeting';
+  }
 }
 
 function formatMinutes(ms: number): string {

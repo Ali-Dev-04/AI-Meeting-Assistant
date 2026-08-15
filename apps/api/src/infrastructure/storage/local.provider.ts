@@ -1,5 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import { env } from '../../config/env';
 import { IStorage } from './storage.types';
 
@@ -18,6 +20,12 @@ export class LocalStorageProvider implements IStorage {
 
   async getPresignedGetUrl(key: string, expiresIn = 3600): Promise<string> {
     return this.signedUrl('GET', key, expiresIn);
+  }
+
+  async put(key: string, body: Buffer): Promise<void> {
+    const target = resolveLocalPath(key);
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, body);
   }
 
   private signedUrl(method: 'PUT' | 'GET', key: string, expiresIn: number): string {
@@ -41,4 +49,12 @@ export function verifySignature(method: string, key: string, exp: number, sig: s
   } catch {
     return false;
   }
+}
+
+/** Maps a storage key to an on-disk path, rejecting traversal attempts. */
+export function resolveLocalPath(key: string): string {
+  if (!/^[\w\-./]+$/.test(key) || key.includes('..')) {
+    throw new UnauthorizedException('Invalid object key');
+  }
+  return path.resolve(process.cwd(), env.LOCAL_STORAGE_DIR, key);
 }

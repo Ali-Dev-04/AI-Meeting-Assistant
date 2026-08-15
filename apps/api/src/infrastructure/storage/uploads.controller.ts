@@ -14,9 +14,8 @@ import { createReadStream, createWriteStream, existsSync, statSync } from 'node:
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import { env } from '../../config/env';
 import { Public } from '../../modules/auth/decorators/public.decorator';
-import { verifySignature } from './local.provider';
+import { resolveLocalPath, verifySignature } from './local.provider';
 
 const UPLOADS_PREFIX = '/api/v1/uploads/';
 
@@ -54,7 +53,7 @@ export class UploadsController {
     if (!method || !exp || !sig || !verifySignature(method, key, Number(exp), sig)) {
       throw new UnauthorizedException('Invalid or expired upload URL');
     }
-    const target = this.resolve(key);
+    const target = resolveLocalPath(key);
     await mkdir(path.dirname(target), { recursive: true });
     // Stream straight to disk — no size limits held in memory.
     await pipeline(req, createWriteStream(target));
@@ -72,7 +71,7 @@ export class UploadsController {
     if (!method || !exp || !sig || !verifySignature(method, key, Number(exp), sig)) {
       throw new UnauthorizedException('Invalid or expired URL');
     }
-    const target = this.resolve(key);
+    const target = resolveLocalPath(key);
     if (!existsSync(target)) throw new NotFoundException('Object not found');
 
     const size = statSync(target).size;
@@ -101,14 +100,6 @@ export class UploadsController {
 
     res.set({ 'Content-Length': String(size), 'Accept-Ranges': 'bytes', 'Content-Type': type });
     createReadStream(target).pipe(res);
-  }
-
-  /** Maps a storage key to an on-disk path, rejecting traversal attempts. */
-  private resolve(key: string): string {
-    if (!/^[\w\-./]+$/.test(key) || key.includes('..')) {
-      throw new UnauthorizedException('Invalid object key');
-    }
-    return path.resolve(process.cwd(), env.LOCAL_STORAGE_DIR, key);
   }
 }
 

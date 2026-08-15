@@ -4,14 +4,14 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
-import { UploadCloud } from 'lucide-react';
+import { Link2, UploadCloud } from 'lucide-react';
 import {
   ALLOWED_UPLOAD_MIME,
   MAX_UPLOAD_BYTES,
   createMeetingSchema,
   type CreateMeetingValues,
 } from '@ama/shared-types';
-import { useCompleteUpload, useCreateMeeting } from '@/lib/api/meetings';
+import { meetingsApi, useCompleteUpload, useCreateMeeting } from '@/lib/api/meetings';
 import { uploadFileToStorage } from '@/lib/api/upload';
 import {
   Dialog,
@@ -43,6 +43,33 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
   const [progress, setProgress] = useState(0);
   const [fileError, setFileError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [mode, setMode] = useState<'file' | 'url'>('file');
+  const [url, setUrl] = useState('');
+  const [urlTitle, setUrlTitle] = useState('');
+  const [importing, setImporting] = useState(false);
+
+  async function submitImport() {
+    setImporting(true);
+    try {
+      await meetingsApi.importFromUrl({
+        url: url.trim(),
+        ...(urlTitle.trim() ? { title: urlTitle.trim() } : {}),
+      });
+      toast.success('Import started', {
+        description: "Processing has begun — you'll be notified when it's ready.",
+      });
+      onOpenChange(false);
+      setUrl('');
+      setUrlTitle('');
+      setMode('file');
+    } catch (error) {
+      toast.error('Import failed', {
+        description: error instanceof Error ? error.message : 'Please try again.',
+      });
+    } finally {
+      setImporting(false);
+    }
+  }
 
   const {
     register,
@@ -127,12 +154,32 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Upload meeting</DialogTitle>
+          <DialogTitle>Add meeting</DialogTitle>
           <DialogDescription>
-            Drag &amp; drop or browse. Supports mp3, wav, and mp4 — up to 2&nbsp;GB.
+            Upload a file, or import a recording from a URL (Zoom/Meet share link, direct file).
           </DialogDescription>
         </DialogHeader>
 
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={mode === 'file' ? 'default' : 'outline'}
+            onClick={() => setMode('file')}
+          >
+            <UploadCloud className="mr-1 h-3.5 w-3.5" /> Upload file
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={mode === 'url' ? 'default' : 'outline'}
+            onClick={() => setMode('url')}
+          >
+            <Link2 className="mr-1 h-3.5 w-3.5" /> Import from URL
+          </Button>
+        </div>
+
+        {mode === 'file' && (
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <label
             htmlFor="meeting-file"
@@ -200,6 +247,46 @@ export function UploadDialog({ open, onOpenChange }: UploadDialogProps) {
             </Button>
           </DialogFooter>
         </form>
+        )}
+
+        {mode === 'url' && (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submitImport();
+            }}
+            className="space-y-4"
+          >
+            <div className="space-y-2">
+              <Label htmlFor="import-url">Recording URL</Label>
+              <Input
+                id="import-url"
+                type="url"
+                placeholder="https://…"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="import-title">Title (optional)</Label>
+              <Input
+                id="import-title"
+                placeholder="Defaults to the file name"
+                value={urlTitle}
+                onChange={(e) => setUrlTitle(e.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={importing}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={importing || url.trim().length === 0}>
+                {importing ? 'Importing…' : 'Import'}
+              </Button>
+            </DialogFooter>
+          </form>
+        )}
       </DialogContent>
     </Dialog>
   );

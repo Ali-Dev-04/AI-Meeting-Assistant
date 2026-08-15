@@ -8,6 +8,8 @@ export interface IStorage {
   getPresignedPutUrl(key: string, contentType: string, expiresIn?: number): Promise<string>;
   /** Short-lived URL for playback/download of a stored object. */
   getPresignedGetUrl(key: string, expiresIn?: number): Promise<string>;
+  /** Server-side write (used by URL imports, which download then store). */
+  put(key: string, body: Buffer, contentType: string): Promise<void>;
 }
 
 export const STORAGE = Symbol('STORAGE');

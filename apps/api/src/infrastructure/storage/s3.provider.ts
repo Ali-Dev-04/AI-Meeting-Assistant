@@ -40,6 +40,12 @@ export class S3StorageProvider implements IStorage, OnModuleDestroy {
     });
   }
 
+  async put(key: string, body: Buffer, contentType: string): Promise<void> {
+    await this.client.send(
+      new PutObjectCommand({ Bucket: env.S3_BUCKET, Key: key, Body: body, ContentType: contentType }),
+    );
+  }
+
   async onModuleDestroy() {
     this.client.destroy();
   }

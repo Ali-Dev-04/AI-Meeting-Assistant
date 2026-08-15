@@ -13,6 +13,7 @@ import type {
   CreateMeetingResponse,
   CreateShareLinkRequest,
   Decision,
+  ImportMeetingRequest,
   Meeting,
   MeetingListParams,
   MeetingPlayback,
@@ -39,6 +40,8 @@ export const meetingsApi = {
   create: (data: CreateMeetingRequest) =>
     apiRequest<CreateMeetingResponse>('/meetings', { method: 'POST', body: data }),
   complete: (id: string) => apiRequest<Meeting>(`/meetings/${id}/complete`, { method: 'POST' }),
+  importFromUrl: (data: ImportMeetingRequest) =>
+    apiRequest<Meeting>('/meetings/import', { method: 'POST', body: data }),
 
   // Meeting content (each loaded lazily when its tab is opened).
   summary: (id: string) => apiRequest<Summary>(`/meetings/${id}/summary`),
@@ -333,6 +336,17 @@ export function useCompleteUpload() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: meetingsApi.complete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meetings'] });
+    },
+  });
+}
+
+/** URL import — the pipeline picks it up like any other meeting. */
+export function useImportMeeting() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: meetingsApi.importFromUrl,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['meetings'] });
     },
