@@ -3,13 +3,14 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useParams, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Share2 } from 'lucide-react';
+import { ArrowLeft, Download, Share2 } from 'lucide-react';
 import { useMeeting } from '@/lib/api/meetings';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/meetings/status-badge';
 import { MeetingTabs } from '@/components/meetings/detail/meeting-tabs';
 import { ShareDialog } from '@/components/meetings/detail/share-dialog';
+import { ExportDialog } from '@/components/meetings/detail/export-dialog';
 import { formatDate, formatDuration } from '@/lib/utils';
 
 export default function MeetingDetailPage() {
@@ -22,6 +23,7 @@ export default function MeetingDetailPage() {
   const [tab, setTab] = useState(searchParams.get('tab') ?? 'summary');
   const [seekIndex, setSeekIndex] = useState<number | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -68,9 +70,14 @@ export default function MeetingDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           {ready && (
-            <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}>
-              <Share2 className="mr-1 h-4 w-4" /> Share
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+                <Download className="mr-1 h-4 w-4" /> Export
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShareOpen(true)}>
+                <Share2 className="mr-1 h-4 w-4" /> Share
+              </Button>
+            </>
           )}
           <StatusBadge status={meeting.status} />
         </div>
@@ -97,7 +104,10 @@ export default function MeetingDetailPage() {
       )}
 
       {ready && (
-        <ShareDialog meetingId={meeting.id} open={shareOpen} onOpenChange={setShareOpen} />
+        <>
+          <ShareDialog meetingId={meeting.id} open={shareOpen} onOpenChange={setShareOpen} />
+          <ExportDialog meetingId={meeting.id} open={exportOpen} onOpenChange={setExportOpen} />
+        </>
       )}
     </div>
   );

@@ -3,6 +3,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from './client';
 import { siteConfig } from '@/config/site';
+import { tokenStore } from '@/lib/auth/token-store';
 import type {
   ActionItem,
   ActionItemStatus,
@@ -285,6 +286,32 @@ export async function fetchSharedView(token: string): Promise<SharedMeetingView>
   const res = await fetch(`${siteConfig.apiUrl}/share/${encodeURIComponent(token)}`);
   if (!res.ok) throw new Error(res.status === 404 ? 'not-found' : 'Failed to load shared meeting.');
   return (await res.json()) as SharedMeetingView;
+}
+
+/**
+ * Download a file export (markdown/srt) with the auth header attached, then hand
+ * the blob to the browser as a save. Plain links can't carry Authorization, so
+ * this fetch → object-URL → anchor-click dance is required.
+ */
+export async function downloadMeetingExport(
+  meetingId: string,
+  kind: 'markdown' | 'srt',
+): Promise<void> {
+  const token = tokenStore.get();
+  const res = await fetch(`${siteConfig.apiUrl}/meetings/${meetingId}/export/${kind}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    credentials: 'include',
+  });
+  if (!res.ok) throw new Error(`Export failed (HTTP ${res.status})`);
+
+  const disposition = res.headers.get('Content-Disposition') ?? '';
+  const filename = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? `meeting.${kind === 'srt' ? 'srt' : 'md'}`;
+  const url = URL.createObjectURL(await res.blob());
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }
 
 export function useCreateMeeting() {

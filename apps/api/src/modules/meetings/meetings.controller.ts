@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post, Query, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   CreateCommentRequest,
@@ -168,5 +169,31 @@ export class MeetingsController {
   @ApiOperation({ summary: 'Get a playback URL' })
   media(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.meetings.getPlaybackUrl(id, user.id);
+  }
+
+  @Get(':id/export/markdown')
+  @ApiOperation({ summary: 'Download the meeting as a Markdown document' })
+  async exportMarkdown(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Res() response: Response,
+  ) {
+    const { filename, content } = await this.meetings.exportMarkdown(id, user.id);
+    response.setHeader('Content-Type', 'text/markdown; charset=utf-8');
+    response.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    response.send(content);
+  }
+
+  @Get(':id/export/srt')
+  @ApiOperation({ summary: 'Download the transcript as SubRip (.srt) subtitles' })
+  async exportSrt(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Res() response: Response,
+  ) {
+    const { filename, content } = await this.meetings.exportSrt(id, user.id);
+    response.setHeader('Content-Type', 'application/x-subrip; charset=utf-8');
+    response.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    response.send(content);
   }
 }

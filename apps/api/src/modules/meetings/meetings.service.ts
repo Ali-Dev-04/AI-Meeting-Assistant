@@ -417,6 +417,80 @@ export class MeetingsService {
     return { playbackUrl: await this.storage.getPresignedGetUrl(media.originalStorageKey) };
   }
 
+  /** Full-meeting Markdown export: summary, key points, action items, decisions, transcript. */
+  async exportMarkdown(meetingId: string, userId: string): Promise<{ filename: string; content: string }> {
+    const meeting = await this.getForUser(meetingId, userId);
+    const [summary, items, decisions, transcript] = await Promise.all([
+      this.prisma.summary.findUnique({ where: { meetingId } }),
+      this.prisma.actionItem.findMany({ where: { meetingId }, orderBy: { createdAt: 'asc' } }),
+      this.prisma.decision.findMany({ where: { meetingId }, orderBy: { createdAt: 'asc' } }),
+      this.prisma.transcript.findUnique({
+        where: { meetingId },
+        include: { segments: { orderBy: { index: 'asc' } } },
+      }),
+    ]);
+
+    const lines: string[] = [
+      `# ${meeting.title}`,
+      '',
+      `**Date:** ${meeting.occurredAt.toISOString().slice(0, 10)}`,
+      meeting.durationSeconds ? `**Duration:** ${Math.round(meeting.durationSeconds / 60)} min` : '',
+      '',
+      '## Overview',
+      summary?.overview ?? '_No summary available._',
+      '',
+    ];
+
+    const keyPoints = (summary?.keyPoints as string[] | undefined) ?? [];
+    if (keyPoints.length > 0) {
+      lines.push('## Key points', ...keyPoints.map((p) => `- ${p}`), '');
+    }
+
+    if (items.length > 0) {
+      lines.push('## Action items');
+      for (const item of items) {
+        const meta = [item.assigneeText ? `_${item.assigneeText}_` : null, `(${item.status.toLowerCase()})`]
+          .filter(Boolean)
+          .join(' ');
+        lines.push(`- [${item.status === 'DONE' ? 'x' : ' '}] ${item.text} ${meta}`.trimEnd());
+      }
+      lines.push('');
+    }
+
+    if (decisions.length > 0) {
+      lines.push('## Decisions');
+      for (const d of decisions) {
+        lines.push(`- ${d.text}${d.context ? `\n  - _${d.context}_` : ''}`);
+      }
+      lines.push('');
+    }
+
+    if (transcript && transcript.segments.length > 0) {
+      lines.push('## Transcript', '');
+      for (const s of transcript.segments) {
+        lines.push(`**[${formatMinutes(s.startTimeMs)}] ${s.speakerLabel}:** ${s.text}`, '');
+      }
+    }
+
+    return { filename: `${slugify(meeting.title)}.md`, content: lines.join('\n') };
+  }
+
+  /** Transcript as SubRip (.srt) subtitles. */
+  async exportSrt(meetingId: string, userId: string): Promise<{ filename: string; content: string }> {
+    const meeting = await this.getForUser(meetingId, userId);
+    const transcript = await this.prisma.transcript.findUnique({
+      where: { meetingId },
+      include: { segments: { orderBy: { index: 'asc' } } },
+    });
+    if (!transcript) throw new NotFoundError('Transcript');
+
+    const content = transcript.segments
+      .map((s, i) => `${i + 1}\n${srtTimestamp(s.startTimeMs)} --> ${srtTimestamp(s.endTimeMs)}\n${s.text}\n`)
+      .join('\n');
+
+    return { filename: `${slugify(meeting.title)}.srt`, content };
+  }
+
   private validateFile(mimeType: string, sizeBytes: number): void {
     if (!(ALLOWED_UPLOAD_MIME as readonly string[]).includes(mimeType)) {
       throw new ValidationError(`Unsupported file type: ${mimeType}`);
@@ -425,4 +499,27 @@ export class MeetingsService {
       throw new ValidationError('File exceeds the 2 GB upload limit.');
     }
   }
+}
+
+function slugify(text: string): string {
+  return (
+    text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'meeting'
+  );
+}
+
+function formatMinutes(ms: number): string {
+  const total = Math.floor(ms / 1000);
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
+function srtTimestamp(ms: number): string {
+  const h = Math.floor(ms / 3_600_000);
+  const m = Math.floor((ms % 3_600_000) / 60_000);
+  const s = Math.floor((ms % 60_000) / 1000);
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')},${String(
+    ms % 1000,
+  ).padStart(3, '0')}`;
 }
