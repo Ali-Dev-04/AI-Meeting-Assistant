@@ -1,0 +1,18 @@
+'use client';
+
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from './client';
+import type { DashboardStats } from '@ama/shared-types';
+
+export const statsApi = {
+  get: () => apiRequest<DashboardStats>('/stats'),
+};
+
+/** Dashboard overview numbers; refreshed every 60s. */
+export function useDashboardStats() {
+  return useQuery({
+    queryKey: ['stats', 'dashboard'],
+    queryFn: statsApi.get,
+    refetchInterval: 60_000,
+  });
+}

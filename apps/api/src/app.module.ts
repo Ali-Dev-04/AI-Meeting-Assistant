@@ -14,6 +14,7 @@ import { SearchModule } from './modules/search/search.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { StatsModule } from './modules/stats/stats.module';
 import { StorageModule } from './infrastructure/storage/storage.module';
 import { CacheModule } from './infrastructure/cache/cache.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
@@ -39,6 +40,7 @@ import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
     ChatModule,
     TasksModule,
     NotificationsModule,
+    StatsModule,
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

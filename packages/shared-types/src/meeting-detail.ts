@@ -78,6 +78,12 @@ export interface AppNotification {
   readAt: string | null;
 }
 
+/** Workspace overview numbers for the dashboard. */
+export interface DashboardStats {
+  meetings: { total: number; ready: number; processing: number };
+  actionItems: { open: number; overdue: number; done: number; completionRate: number };
+}
+
 export interface TranscriptSegment {
   id: string;
   index: number;
