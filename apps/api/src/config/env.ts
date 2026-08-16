@@ -48,9 +48,13 @@ const schema = z
     ANTHROPIC_API_KEY: z.string().optional(),
     ANTHROPIC_MODEL: z.string().default('claude-sonnet-5'),
 
-    // Speech-to-text: self-hosted Whisper service or built-in demo (scripted transcripts).
+    // Speech-to-text: built-in demo (scripted transcripts), or any OpenAI-compatible
+    // Whisper endpoint — hosted (Groq: https://api.groq.com/openai, model whisper-large-v3)
+    // or self-hosted. STT_API_KEY/STT_MODEL apply to the whisper provider only.
     STT_PROVIDER: z.enum(['whisper', 'demo']).default('demo'),
     STT_ENDPOINT: z.string().url().optional(),
+    STT_API_KEY: z.string().optional(),
+    STT_MODEL: z.string().default('whisper-1'),
 
     // Embeddings: self-hosted service or built-in local (deterministic hashed vectors).
     EMBEDDING_PROVIDER: z.enum(['self-hosted', 'local']).default('local'),
