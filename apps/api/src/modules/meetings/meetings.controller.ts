@@ -189,6 +189,13 @@ export class MeetingsController {
     return this.meetings.getPlaybackUrl(id, user.id);
   }
 
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a meeting (soft — hides it from dashboard, search, tasks, shares)' })
+  delete(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.meetings.deleteMeeting(id, user.id);
+  }
+
   @Get(':id/export/markdown')
   @ApiOperation({ summary: 'Download the meeting as a Markdown document' })
   async exportMarkdown(

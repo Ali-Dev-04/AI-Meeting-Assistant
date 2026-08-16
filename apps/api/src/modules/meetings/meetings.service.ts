@@ -535,6 +535,26 @@ export class MeetingsService {
     return { playbackUrl: await this.storage.getPresignedGetUrl(media.originalStorageKey) };
   }
 
+  /**
+   * Soft-delete: stamps deletedAt, which every query (list, detail, search, tasks,
+   * stats, chat, assistant) already filters on — the meeting and its children vanish
+   * from the app without destroying data. Allowed for the meeting's owner or a
+   * workspace Admin/Owner.
+   */
+  async deleteMeeting(meetingId: string, userId: string) {
+    const meeting = await this.getForUser(meetingId, userId);
+    if (meeting.ownerId !== userId) {
+      const role = await this.workspaces.getMemberRole(userId, meeting.workspaceId);
+      if (role !== 'ADMIN' && role !== 'OWNER') {
+        throw new ForbiddenError('Only the meeting owner or an admin can delete meetings.');
+      }
+    }
+    await this.prisma.meeting.update({
+      where: { id: meetingId },
+      data: { deletedAt: new Date() },
+    });
+  }
+
   /** Full-meeting Markdown export: summary, key points, action items, decisions, transcript. */
   async exportMarkdown(meetingId: string, userId: string): Promise<{ filename: string; content: string }> {
     const meeting = await this.getForUser(meetingId, userId);

@@ -40,6 +40,7 @@ export const meetingsApi = {
   create: (data: CreateMeetingRequest) =>
     apiRequest<CreateMeetingResponse>('/meetings', { method: 'POST', body: data }),
   complete: (id: string) => apiRequest<Meeting>(`/meetings/${id}/complete`, { method: 'POST' }),
+  remove: (id: string) => apiRequest<void>(`/meetings/${id}`, { method: 'DELETE' }),
   importFromUrl: (data: ImportMeetingRequest) =>
     apiRequest<Meeting>('/meetings/import', { method: 'POST', body: data }),
 
@@ -349,6 +350,19 @@ export function useImportMeeting() {
     mutationFn: meetingsApi.importFromUrl,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['meetings'] });
+    },
+  });
+}
+
+/** Soft-delete a meeting (e.g. a stuck-QUEUED one); refresh everything that shows meetings. */
+export function useDeleteMeeting() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: meetingsApi.remove,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meetings'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
 }
