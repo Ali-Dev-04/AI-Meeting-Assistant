@@ -213,14 +213,16 @@ export function useUpdateActionItem(meetingId: string) {
 }
 
 export const tasksApi = {
-  list: (params: { status?: ActionItemStatus; scope?: 'mine' | 'all' } = {}) =>
+  list: (params: { status?: ActionItemStatus; scope?: 'mine' | 'unassigned' | 'all' } = {}) =>
     apiRequest<{ items: Task[] }>('/tasks', {
       query: { status: params.status, scope: params.scope },
     }),
 };
 
-/** Cross-meeting action items (default: assigned to the current user). */
-export function useMyTasks(params: { status?: ActionItemStatus; scope?: 'mine' | 'all' } = {}) {
+/** Cross-meeting action items (mine | unassigned | all). */
+export function useMyTasks(
+  params: { status?: ActionItemStatus; scope?: 'mine' | 'unassigned' | 'all' } = {},
+) {
   return useQuery({
     queryKey: ['tasks', 'list', params],
     queryFn: () => tasksApi.list(params),

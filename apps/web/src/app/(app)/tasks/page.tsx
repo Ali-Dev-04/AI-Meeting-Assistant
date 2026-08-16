@@ -3,8 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Ban, CheckCircle2, Circle } from 'lucide-react';
+import { toast } from 'sonner';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ActionItemStatus, Task } from '@ama/shared-types';
-import { useMyTasks } from '@/lib/api/meetings';
+import { meetingsApi, useMyTasks } from '@/lib/api/meetings';
+import { useCurrentUser } from '@/lib/api/auth';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn, formatDate } from '@/lib/utils';
@@ -16,17 +19,34 @@ const STATUS_FILTERS: Array<{ label: string; value?: ActionItemStatus }> = [
   { label: 'Dismissed', value: 'DISMISSED' },
 ];
 
-const SCOPES = [
-  { label: 'Mine', value: 'mine' as const },
-  { label: 'Everyone', value: 'all' as const },
+type Scope = 'mine' | 'unassigned' | 'all';
+
+const SCOPES: Array<{ label: string; value: Scope }> = [
+  { label: 'Mine', value: 'mine' },
+  { label: 'Unassigned', value: 'unassigned' },
+  { label: 'Everyone', value: 'all' },
 ];
 
 export default function TasksPage() {
   const [status, setStatus] = useState<ActionItemStatus | undefined>(undefined);
-  const [scope, setScope] = useState<'mine' | 'all'>('mine');
+  const [scope, setScope] = useState<Scope>('mine');
+  const { data: user } = useCurrentUser();
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useMyTasks({ status, scope });
   const tasks = data?.items ?? [];
+
+  // Claim an unassigned task for yourself (same endpoint the Action Items tab uses).
+  const claim = useMutation({
+    mutationFn: (task: Task) =>
+      meetingsApi.updateActionItem(task.meetingId, task.id, { assigneeUserId: user?.id ?? null }),
+    onSuccess: () => {
+      toast.success('Task assigned to you');
+      void queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      void queryClient.invalidateQueries({ queryKey: ['meetings'] });
+    },
+    onError: () => toast.error("Couldn't claim the task."),
+  });
 
   return (
     <div className="space-y-6">
@@ -67,15 +87,17 @@ export default function TasksPage() {
       ) : isError ? (
         <p className="text-sm text-muted-foreground">Couldn&rsquo;t load tasks.</p>
       ) : tasks.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {scope === 'mine'
-            ? 'Nothing assigned to you. Assign an action item to yourself from a meeting.'
-            : 'No action items yet.'}
-        </p>
+        <p className="text-sm text-muted-foreground">{emptyMessage(scope)}</p>
       ) : (
         <ul className="space-y-2">
           {tasks.map((task) => (
-            <TaskCard key={`${task.meetingId}-${task.id}`} task={task} />
+            <TaskCard
+              key={`${task.meetingId}-${task.id}`}
+              task={task}
+              claimable={scope === 'unassigned' && Boolean(user)}
+              claiming={claim.isPending && claim.variables?.id === task.id}
+              onClaim={() => claim.mutate(task)}
+            />
           ))}
         </ul>
       )}
@@ -83,44 +105,68 @@ export default function TasksPage() {
   );
 }
 
-function TaskCard({ task }: { task: Task }) {
+function emptyMessage(scope: Scope): string {
+  if (scope === 'mine') {
+    return 'Nothing assigned to you. Assign an action item to yourself from a meeting, or claim one from Unassigned.';
+  }
+  if (scope === 'unassigned') return 'No unassigned tasks — everything has an owner.';
+  return 'No action items yet.';
+}
+
+function TaskCard({
+  task,
+  claimable,
+  claiming,
+  onClaim,
+}: {
+  task: Task;
+  claimable: boolean;
+  claiming: boolean;
+  onClaim: () => void;
+}) {
   const due = task.dueDate ? new Date(task.dueDate) : null;
   const overdue = Boolean(due && task.status === 'OPEN' && due < new Date());
   const Icon = task.status === 'DONE' ? CheckCircle2 : task.status === 'DISMISSED' ? Ban : Circle;
 
   return (
-    <li>
+    <li className="rounded-lg border p-4 transition-colors hover:bg-accent">
       <Link
         href={`/meetings/${task.meetingId}?tab=action-items`}
-        className="block rounded-lg border p-4 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex items-start gap-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <div className="flex items-start gap-3">
-          <Icon
+        <Icon
+          className={cn(
+            'mt-0.5 h-4 w-4 shrink-0',
+            task.status === 'DONE' && 'text-primary',
+            task.status === 'DISMISSED' && 'text-muted-foreground',
+          )}
+          aria-hidden
+        />
+        <div className="min-w-0 flex-1 space-y-1">
+          <p
             className={cn(
-              'mt-0.5 h-4 w-4 shrink-0',
-              task.status === 'DONE' && 'text-primary',
-              task.status === 'DISMISSED' && 'text-muted-foreground',
+              'text-sm font-medium',
+              task.status !== 'OPEN' && 'text-muted-foreground line-through',
             )}
-            aria-hidden
-          />
-          <div className="min-w-0 flex-1 space-y-1">
-            <p
-              className={cn(
-                'text-sm font-medium',
-                task.status !== 'OPEN' && 'text-muted-foreground line-through',
-              )}
-            >
-              {task.text}
+          >
+            {task.text}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {task.meetingTitle}
+            {task.assigneeText ? ` · mentioned: ${task.assigneeText}` : ''}
+          </p>
+          {due && (
+            <p className={cn('text-xs', overdue ? 'text-destructive' : 'text-muted-foreground')}>
+              Due {formatDate(task.dueDate as string)}
             </p>
-            <p className="text-xs text-muted-foreground">{task.meetingTitle}</p>
-            {due && (
-              <p className={cn('text-xs', overdue ? 'text-destructive' : 'text-muted-foreground')}>
-                Due {formatDate(task.dueDate as string)}
-              </p>
-            )}
-          </div>
+          )}
         </div>
       </Link>
+      {claimable && (
+        <Button size="sm" variant="outline" className="mt-3" onClick={onClaim} disabled={claiming}>
+          {claiming ? 'Assigning…' : 'Assign to me'}
+        </Button>
+      )}
     </li>
   );
 }

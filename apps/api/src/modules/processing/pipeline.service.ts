@@ -90,7 +90,7 @@ export class PipelineService {
       });
       const transcriptText = segments.map((s) => `${s.speakerLabel}: ${s.text}`).join('\n');
       const insights = await this.llm.extractInsights(transcriptText);
-      await this.persistInsights(meetingId, insights);
+      await this.persistInsights(meetingId, meeting.workspaceId, insights);
 
       // 3) INDEX (embed chunks for semantic search + RAG)
       await this.setStatus(meetingId, 'INDEXING');
@@ -149,7 +149,7 @@ export class PipelineService {
     return Buffer.from(await response.arrayBuffer());
   }
 
-  private async persistInsights(meetingId: string, insights: InsightsResult): Promise<void> {
+  private async persistInsights(meetingId: string, workspaceId: string, insights: InsightsResult): Promise<void> {
     await this.prisma.summary.create({
       data: {
         meetingId,
@@ -160,10 +160,32 @@ export class PipelineService {
         promptVersion: '1',
       },
     });
+    // Create items individually so each one can be auto-assigned: the LLM gives the
+    // assignee as TEXT ("Marcus will…"); resolve it to a workspace member account so
+    // the task lands in that person's "Mine" list (with a bell notification).
     if (insights.actionItems.length > 0) {
-      await this.prisma.actionItem.createMany({
-        data: insights.actionItems.map((a) => ({ meetingId, text: a.text, assigneeText: a.assigneeText })),
+      const members = await this.prisma.workspaceMember.findMany({
+        where: { workspaceId, status: 'ACTIVE' },
+        include: { user: { select: { id: true, name: true, email: true } } },
       });
+
+      for (const draft of insights.actionItems) {
+        const assigneeUserId = resolveAssignee(draft.assigneeText, members);
+        await this.prisma.actionItem.create({
+          data: { meetingId, text: draft.text, assigneeText: draft.assigneeText, assigneeUserId },
+        });
+        if (assigneeUserId) {
+          await this.prisma.notification
+            .create({
+              data: {
+                userId: assigneeUserId,
+                type: 'task.assigned',
+                payload: { title: `You were assigned: ${draft.text.slice(0, 80)}`, meetingId },
+              },
+            })
+            .catch(() => undefined); // best-effort — never fail the pipeline
+        }
+      }
     }
     if (insights.decisions.length > 0) {
       await this.prisma.decision.createMany({
@@ -228,4 +250,34 @@ export class PipelineService {
 function countWords(text: string): number {
   const trimmed = text.trim();
   return trimmed.length === 0 ? 0 : trimmed.split(/\s+/).length;
+}
+
+interface MemberForMatching {
+  userId: string;
+  user: { id: string; name: string | null; email: string };
+}
+
+/**
+ * Match an LLM-extracted assignee ("Marcus", "dana@x.com", "Priya Patel") to a
+ * workspace member by full name, first name, or email local-part. Conservative on
+ * purpose: exact (case-insensitive) matches only; generic labels like "Speaker 1"
+ * never match, leaving the task unassigned for triage.
+ */
+function resolveAssignee(
+  assigneeText: string | null,
+  members: MemberForMatching[],
+): string | null {
+  if (!assigneeText) return null;
+  const needle = assigneeText.trim().toLowerCase().replace(/[.,;:!?]+$/, '');
+  if (!needle || /^speaker\b/.test(needle)) return null;
+
+  for (const member of members) {
+    const name = member.user.name?.toLowerCase() ?? '';
+    const firstName = name.split(/\s+/)[0] ?? '';
+    const emailLocal = member.user.email.split('@')[0]?.toLowerCase() ?? '';
+    if (name === needle || firstName === needle || emailLocal === needle) {
+      return member.userId;
+    }
+  }
+  return null;
 }

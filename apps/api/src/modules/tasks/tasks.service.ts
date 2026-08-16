@@ -32,12 +32,14 @@ export class TasksService {
     }>;
   }> {
     const workspace = await this.workspaces.getActiveForUser(userId);
-    const mine = options.scope !== 'all'; // default: tasks assigned to the caller
+    // mine = assigned to the caller (default) · unassigned = triage queue · all = everything.
+    const scope = options.scope === 'all' || options.scope === 'unassigned' ? options.scope : 'mine';
 
     const items = await this.prisma.actionItem.findMany({
       where: {
         meeting: { workspaceId: workspace.id, deletedAt: null },
-        ...(mine ? { assigneeUserId: userId } : {}),
+        ...(scope === 'mine' ? { assigneeUserId: userId } : {}),
+        ...(scope === 'unassigned' ? { assigneeUserId: null } : {}),
         ...(options.status ? { status: options.status as ActionItemStatus } : {}),
       },
       include: { meeting: { select: { id: true, title: true, occurredAt: true } } },

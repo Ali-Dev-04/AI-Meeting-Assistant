@@ -9,7 +9,7 @@ export class TasksController {
   constructor(private readonly tasks: TasksService) {}
 
   @Get()
-  @ApiOperation({ summary: 'List action items across meetings (default: assigned to me)' })
+  @ApiOperation({ summary: 'List action items across meetings (scope: mine | unassigned | all)' })
   list(
     @CurrentUser() user: AuthUser,
     @Query('status') status?: string,
