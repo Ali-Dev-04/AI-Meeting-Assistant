@@ -14,7 +14,8 @@ async function bootstrap() {
   if (env.SENTRY_DSN) {
     Sentry.init({ dsn: env.SENTRY_DSN, environment: env.NODE_ENV, tracesSampleRate: 0.1 });
   }
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  // rawBody is required to verify Stripe webhook signatures.
+  const app = await NestFactory.create(AppModule, { bufferLogs: true, rawBody: true });
 
   app.use(helmet());
   app.use(cookieParser());

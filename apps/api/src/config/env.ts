@@ -69,6 +69,9 @@ const schema = z
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_PRO_PRICE_ID: z.string().optional(),
     STRIPE_BUSINESS_PRICE_ID: z.string().optional(),
+    // Only needed for the webhook path (stripe listen / production endpoint).
+    // Sandbox checkout works without it via POST /billing/checkout/confirm.
+    STRIPE_WEBHOOK_SECRET: z.string().optional(),
 
     // Observability (optional)
     SENTRY_DSN: z.string().optional(),

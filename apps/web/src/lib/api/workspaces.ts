@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { apiRequest } from './client';
 import type {
   CheckoutSession,
@@ -28,6 +29,13 @@ export const workspacesApi = {
   usage: () => apiRequest<Usage>('/billing/usage'),
   checkout: (plan: PlanTier) =>
     apiRequest<CheckoutSession>('/billing/checkout', { method: 'POST', body: { plan } }),
+  confirmCheckout: (sessionId: string) =>
+    apiRequest<{ plan: PlanTier }>('/billing/checkout/confirm', {
+      method: 'POST',
+      body: { sessionId },
+    }),
+  cancelSubscription: () =>
+    apiRequest<{ cancelsAt: string | null }>('/billing/cancel', { method: 'POST' }),
 };
 
 export function useWorkspaces() {
@@ -113,5 +121,33 @@ export function useCheckout() {
     onSuccess: (session) => {
       window.location.href = session.url;
     },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Checkout failed.');
+    },
+  });
+}
+
+function useInvalidateBilling() {
+  const queryClient = useQueryClient();
+  return () => {
+    void queryClient.invalidateQueries({ queryKey: ['billing'] });
+    void queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+  };
+}
+
+/** Sandbox activation: verify the returned checkout session with the API. */
+export function useConfirmCheckout() {
+  const invalidate = useInvalidateBilling();
+  return useMutation({
+    mutationFn: workspacesApi.confirmCheckout,
+    onSuccess: invalidate,
+  });
+}
+
+export function useCancelSubscription() {
+  const invalidate = useInvalidateBilling();
+  return useMutation({
+    mutationFn: workspacesApi.cancelSubscription,
+    onSuccess: invalidate,
   });
 }
