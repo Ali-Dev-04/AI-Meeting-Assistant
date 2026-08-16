@@ -7,7 +7,6 @@ import type {
   Invitation,
   InviteValues,
   Member,
-  MemberRole,
   PlanTier,
   UpdateMemberRoleRequest,
   Usage,
