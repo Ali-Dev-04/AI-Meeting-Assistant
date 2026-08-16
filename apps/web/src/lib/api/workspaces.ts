@@ -4,9 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from './client';
 import type {
   CheckoutSession,
+  Invitation,
   InviteValues,
   Member,
+  MemberRole,
   PlanTier,
+  UpdateMemberRoleRequest,
   Usage,
   Workspace,
 } from '@ama/shared-types';
@@ -15,7 +18,14 @@ export const workspacesApi = {
   list: () => apiRequest<Workspace[]>('/workspaces'),
   members: (id: string) => apiRequest<Member[]>(`/workspaces/${id}/members`),
   invite: (id: string, data: InviteValues) =>
-    apiRequest<Member>(`/workspaces/${id}/invitations`, { method: 'POST', body: data }),
+    apiRequest<Invitation>(`/workspaces/${id}/invitations`, { method: 'POST', body: data }),
+  invitations: (id: string) => apiRequest<Invitation[]>(`/workspaces/${id}/invitations`),
+  revokeInvitation: (id: string, invitationId: string) =>
+    apiRequest<void>(`/workspaces/${id}/invitations/${invitationId}`, { method: 'DELETE' }),
+  updateMemberRole: (id: string, memberId: string, data: UpdateMemberRoleRequest) =>
+    apiRequest<void>(`/workspaces/${id}/members/${memberId}`, { method: 'PATCH', body: data }),
+  removeMember: (id: string, memberId: string) =>
+    apiRequest<void>(`/workspaces/${id}/members/${memberId}`, { method: 'DELETE' }),
   usage: () => apiRequest<Usage>('/billing/usage'),
   checkout: (plan: PlanTier) =>
     apiRequest<CheckoutSession>('/billing/checkout', { method: 'POST', body: { plan } }),
@@ -39,13 +49,57 @@ export function useMembers(workspaceId: string) {
   });
 }
 
+export function useInvitations(workspaceId: string) {
+  return useQuery({
+    queryKey: ['workspaces', 'invitations', workspaceId],
+    queryFn: () => workspacesApi.invitations(workspaceId),
+    enabled: Boolean(workspaceId),
+  });
+}
+
 export function useInvite(workspaceId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: InviteValues) => workspacesApi.invite(workspaceId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workspaces', 'members', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['workspaces', 'invitations', workspaceId] });
     },
+  });
+}
+
+export function useRevokeInvitation(workspaceId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (invitationId: string) =>
+      workspacesApi.revokeInvitation(workspaceId, invitationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workspaces', 'invitations', workspaceId] });
+    },
+  });
+}
+
+function useInvalidateMembers(workspaceId: string) {
+  const queryClient = useQueryClient();
+  return () => {
+    void queryClient.invalidateQueries({ queryKey: ['workspaces', 'members', workspaceId] });
+    void queryClient.invalidateQueries({ queryKey: ['workspaces'] });
+  };
+}
+
+export function useUpdateMemberRole(workspaceId: string) {
+  const invalidate = useInvalidateMembers(workspaceId);
+  return useMutation({
+    mutationFn: ({ memberId, role }: { memberId: string; role: 'ADMIN' | 'MEMBER' }) =>
+      workspacesApi.updateMemberRole(workspaceId, memberId, { role }),
+    onSuccess: invalidate,
+  });
+}
+
+export function useRemoveMember(workspaceId: string) {
+  const invalidate = useInvalidateMembers(workspaceId);
+  return useMutation({
+    mutationFn: (memberId: string) => workspacesApi.removeMember(workspaceId, memberId),
+    onSuccess: invalidate,
   });
 }
 

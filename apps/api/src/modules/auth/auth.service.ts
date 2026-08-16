@@ -37,6 +37,9 @@ export class AuthService {
     // Provision a personal workspace so the new user can start immediately.
     await this.createPersonalWorkspace(user.id, input.name ?? input.email);
 
+    // Join any workspaces this email was invited to (with the invited role).
+    await this.acceptInvitations(user.id, input.email);
+
     return this.issue(user.id, user.email);
   }
 
@@ -92,5 +95,28 @@ export class AuthService {
         members: { create: { userId: ownerId, role: 'OWNER', status: 'ACTIVE' } },
       },
     });
+  }
+
+  /** Auto-accept unexpired PENDING invitations for this email (Settings → Invite). */
+  private async acceptInvitations(userId: string, email: string): Promise<void> {
+    const pending = await this.prisma.invitation.findMany({
+      where: { email: email.toLowerCase(), status: 'PENDING', expiresAt: { gt: new Date() } },
+    });
+    for (const invitation of pending) {
+      await this.prisma.workspaceMember.upsert({
+        where: { userId_workspaceId: { userId, workspaceId: invitation.workspaceId } },
+        update: { role: invitation.role, status: 'ACTIVE' },
+        create: {
+          userId,
+          workspaceId: invitation.workspaceId,
+          role: invitation.role,
+          status: 'ACTIVE',
+        },
+      });
+      await this.prisma.invitation.update({
+        where: { id: invitation.id },
+        data: { status: 'ACCEPTED' },
+      });
+    }
   }
 }

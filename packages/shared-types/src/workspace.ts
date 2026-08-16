@@ -29,6 +29,9 @@ export interface Invitation {
   role: MemberRole;
   status: 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'REVOKED';
   expiresAt: string;
+  createdAt?: string;
+  /** Present when email delivery isn't configured — share this link manually. */
+  inviteUrl?: string;
 }
 
 export const inviteSchema = z.object({
@@ -36,6 +39,12 @@ export const inviteSchema = z.object({
   role: memberRoleSchema.default('MEMBER'),
 });
 export type InviteValues = z.infer<typeof inviteSchema>;
+
+/** Change a member's role (Owner only; the Owner role itself is immutable). */
+export const updateMemberRoleSchema = z.object({
+  role: z.enum(['ADMIN', 'MEMBER']),
+});
+export type UpdateMemberRoleRequest = z.infer<typeof updateMemberRoleSchema>;
 
 /** Current-period usage against the plan's limits. */
 export interface Usage {

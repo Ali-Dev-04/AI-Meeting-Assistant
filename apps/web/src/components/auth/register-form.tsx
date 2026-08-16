@@ -2,6 +2,7 @@
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useSearchParams } from 'next/navigation';
 import { registerSchema, type RegisterRequest } from '@ama/shared-types';
 import { useRegister } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/client';
@@ -11,11 +12,16 @@ import { Label } from '@/components/ui/label';
 
 export function RegisterForm() {
   const registerMutation = useRegister();
+  // Invite links arrive as /register?email=… — prefill so the email matches the invite.
+  const searchParams = useSearchParams();
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<RegisterRequest>({ resolver: zodResolver(registerSchema) });
+  } = useForm<RegisterRequest>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: { email: searchParams.get('email') ?? '' },
+  });
 
   return (
     <form
