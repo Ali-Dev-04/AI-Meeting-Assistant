@@ -41,6 +41,10 @@ export const meetingsApi = {
     apiRequest<CreateMeetingResponse>('/meetings', { method: 'POST', body: data }),
   complete: (id: string) => apiRequest<Meeting>(`/meetings/${id}/complete`, { method: 'POST' }),
   remove: (id: string) => apiRequest<void>(`/meetings/${id}`, { method: 'DELETE' }),
+  rename: (id: string, title: string) =>
+    apiRequest<Meeting>(`/meetings/${id}`, { method: 'PATCH', body: { title } }),
+  reprocess: (id: string) =>
+    apiRequest<Meeting>(`/meetings/${id}/reprocess`, { method: 'POST' }),
   importFromUrl: (data: ImportMeetingRequest) =>
     apiRequest<Meeting>('/meetings/import', { method: 'POST', body: data }),
 
@@ -88,6 +92,8 @@ export function useMeetings(params: Omit<MeetingListParams, 'cursor' | 'limit'> 
       meetingsApi.list({ ...params, cursor: pageParam, limit: PAGE_SIZE }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => (last.hasMore && last.nextCursor ? last.nextCursor : undefined),
+    // Poll so QUEUED → TRANSCRIBING → READY transitions appear without a refresh.
+    refetchInterval: 15_000,
   });
 }
 
@@ -206,8 +212,9 @@ export function useUpdateActionItem(meetingId: string) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey });
-      // Tasks page mirrors action items — keep it in sync.
+      // Tasks page + dashboard stats mirror action items — keep both in sync.
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
 }
@@ -219,13 +226,15 @@ export const tasksApi = {
     }),
 };
 
-/** Cross-meeting action items (mine | unassigned | all). */
+/** Cross-meeting action items (mine | unassigned | all); polled so newly
+ *  processed meetings' tasks appear without a manual refresh. */
 export function useMyTasks(
   params: { status?: ActionItemStatus; scope?: 'mine' | 'unassigned' | 'all' } = {},
 ) {
   return useQuery({
     queryKey: ['tasks', 'list', params],
     queryFn: () => tasksApi.list(params),
+    refetchInterval: 15_000,
   });
 }
 
@@ -334,13 +343,15 @@ export function useCreateMeeting() {
   return useMutation({ mutationFn: meetingsApi.create });
 }
 
-/** After upload completes, invalidate the list so the new (QUEUED) meeting appears. */
+/** After upload completes, invalidate list + stats so the QUEUED meeting and the
+ *  processing count appear on the dashboard instantly. */
 export function useCompleteUpload() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: meetingsApi.complete,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['meetings'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
 }
@@ -352,6 +363,7 @@ export function useImportMeeting() {
     mutationFn: meetingsApi.importFromUrl,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['meetings'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });
 }
@@ -364,6 +376,31 @@ export function useDeleteMeeting() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['meetings'] });
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['stats'] });
+    },
+  });
+}
+
+/** Inline title edit on the meeting detail page. */
+export function useRenameMeeting(meetingId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (title: string) => meetingsApi.rename(meetingId, title),
+    onSuccess: (meeting) => {
+      queryClient.setQueryData(['meetings', 'detail', meetingId], meeting);
+      queryClient.invalidateQueries({ queryKey: ['meetings', 'list'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+  });
+}
+
+/** Re-run the pipeline for a FAILED/stuck meeting. */
+export function useReprocessMeeting(meetingId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => meetingsApi.reprocess(meetingId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['meetings'] });
       queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
   });

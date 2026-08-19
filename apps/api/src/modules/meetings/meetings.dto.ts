@@ -20,6 +20,7 @@ export function toMeetingDto(meeting: Meeting) {
     ownerId: meeting.ownerId,
     language: meeting.language,
     durationSeconds: meeting.durationSeconds,
+    failureReason: meeting.failureReason,
     createdAt: meeting.createdAt.toISOString(),
     updatedAt: meeting.updatedAt.toISOString(),
   };

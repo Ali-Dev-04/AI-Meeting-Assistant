@@ -555,6 +555,39 @@ export class MeetingsService {
     });
   }
 
+  /** Rename a meeting (title only — content is untouched). */
+  async renameMeeting(meetingId: string, title: string, userId: string) {
+    await this.getForUser(meetingId, userId); // access check only
+    const updated = await this.prisma.meeting.update({
+      where: { id: meetingId },
+      data: { title },
+    });
+    return toMeetingDto(updated);
+  }
+
+  /**
+   * Re-run the pipeline for a FAILED meeting (or one stuck QUEUED with media
+   * attached). Wipes the failure reason, resets to QUEUED, and re-enqueues — the
+   * pipeline clears any partial artifacts itself on retry.
+   */
+  async reprocessMeeting(meetingId: string, userId: string) {
+    const meeting = await this.getForUser(meetingId, userId);
+    if (meeting.status !== 'FAILED' && meeting.status !== 'QUEUED') {
+      throw new ValidationError('Only failed or stuck-queued meetings can be reprocessed.');
+    }
+    const media = await this.prisma.meetingMedia.findFirst({ where: { meetingId } });
+    if (!media) {
+      throw new ValidationError('This meeting has no recording attached — delete it and upload again.');
+    }
+
+    const updated = await this.prisma.meeting.update({
+      where: { id: meetingId },
+      data: { status: 'QUEUED', failureReason: null },
+    });
+    await this.queue.enqueueMeetingProcessing(meetingId);
+    return toMeetingDto(updated);
+  }
+
   /** Full-meeting Markdown export: summary, key points, action items, decisions, transcript. */
   async exportMarkdown(meetingId: string, userId: string): Promise<{ filename: string; content: string }> {
     const meeting = await this.getForUser(meetingId, userId);

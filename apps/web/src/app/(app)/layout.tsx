@@ -9,6 +9,7 @@ import { AppSidebar } from '@/components/layout/app-sidebar';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
 import { CommandPalette } from '@/components/layout/command-palette';
 import { NotificationBell } from '@/components/layout/notification-bell';
+import { MobileNav } from '@/components/layout/mobile-nav';
 
 /**
  * Authenticated app shell: sidebar nav + top bar (search trigger, theme toggle,
@@ -62,10 +63,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8 pb-24 lg:pb-8">{children}</main>
       </div>
 
       <CommandPalette />
+      <MobileNav />
     </div>
   );
 }

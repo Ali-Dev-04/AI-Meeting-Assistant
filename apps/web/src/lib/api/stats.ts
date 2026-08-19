@@ -8,11 +8,11 @@ export const statsApi = {
   get: () => apiRequest<DashboardStats>('/stats'),
 };
 
-/** Dashboard overview numbers; refreshed every 60s. */
+/** Dashboard overview numbers; polled so processing/upgrades reflect live. */
 export function useDashboardStats() {
   return useQuery({
     queryKey: ['stats', 'dashboard'],
     queryFn: statsApi.get,
-    refetchInterval: 60_000,
+    refetchInterval: 15_000,
   });
 }

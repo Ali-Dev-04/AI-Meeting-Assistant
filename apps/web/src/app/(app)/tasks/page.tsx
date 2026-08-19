@@ -44,6 +44,7 @@ export default function TasksPage() {
       toast.success('Task assigned to you');
       void queryClient.invalidateQueries({ queryKey: ['tasks'] });
       void queryClient.invalidateQueries({ queryKey: ['meetings'] });
+      void queryClient.invalidateQueries({ queryKey: ['stats'] });
     },
     onError: () => toast.error("Couldn't claim the task."),
   });

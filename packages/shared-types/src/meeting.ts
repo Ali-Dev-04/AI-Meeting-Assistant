@@ -24,6 +24,8 @@ export interface Meeting {
   ownerId: string;
   language: string;
   durationSeconds: number | null;
+  /** Populated when status = FAILED. */
+  failureReason?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -33,6 +35,12 @@ export const createMeetingSchema = z.object({
   title: z.string().trim().min(1, 'Title is required').max(200, 'Title is too long'),
 });
 export type CreateMeetingValues = z.infer<typeof createMeetingSchema>;
+
+/** Rename a meeting (meeting detail → title edit). */
+export const renameMeetingSchema = z.object({
+  title: z.string().trim().min(1, 'Title is required').max(200, 'Title is too long'),
+});
+export type RenameMeetingRequest = z.infer<typeof renameMeetingSchema>;
 
 /** Import a recording from a URL (Zoom/Meet share link, direct media URL). */
 export const importMeetingSchema = z.object({

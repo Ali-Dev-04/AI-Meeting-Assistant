@@ -9,6 +9,8 @@ import {
   createShareLinkSchema,
   ImportMeetingRequest,
   importMeetingSchema,
+  RenameMeetingRequest,
+  renameMeetingSchema,
   UpdateActionItemRequest,
   updateActionItemSchema,
   UpdateSummaryRequest,
@@ -194,6 +196,23 @@ export class MeetingsController {
   @ApiOperation({ summary: 'Delete a meeting (soft — hides it from dashboard, search, tasks, shares)' })
   delete(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.meetings.deleteMeeting(id, user.id);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Rename a meeting' })
+  rename(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(renameMeetingSchema)) body: RenameMeetingRequest,
+  ) {
+    return this.meetings.renameMeeting(id, body.title, user.id);
+  }
+
+  @Post(':id/reprocess')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({ summary: 'Re-run the pipeline for a failed (or stuck) meeting' })
+  reprocess(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.meetings.reprocessMeeting(id, user.id);
   }
 
   @Get(':id/export/markdown')
