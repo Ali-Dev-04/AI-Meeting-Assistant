@@ -1,14 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
-import {
-  useCancelSubscription,
-  useCheckout,
-  useConfirmCheckout,
-  useUsage,
-} from '@/lib/api/workspaces';
+import { useCancelSubscription, useCheckout, useUsage } from '@/lib/api/workspaces';
 import type { PlanTier } from '@ama/shared-types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -31,38 +24,10 @@ const PLANS: Array<{
 export function BillingTab() {
   const { data: usage, isLoading } = useUsage();
   const checkout = useCheckout();
-  const confirm = useConfirmCheckout();
   const cancel = useCancelSubscription();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const handled = useRef(false);
 
-  // Stripe redirects back with ?checkout=success&session_id=… (or cancelled).
-  useEffect(() => {
-    if (handled.current) return;
-    const status = searchParams.get('checkout');
-    const sessionId = searchParams.get('session_id');
-    if (status === 'cancelled') {
-      handled.current = true;
-      toast.info('Checkout cancelled');
-      router.replace('/settings');
-      return;
-    }
-    if (status === 'success' && sessionId) {
-      handled.current = true;
-      confirm.mutate(sessionId, {
-        onSuccess: ({ plan }) => {
-          toast.success(`Upgraded to ${plan.toLowerCase()} 🎉`);
-          router.replace('/settings');
-        },
-        onError: (error) => {
-          toast.error(error instanceof Error ? error.message : 'Could not confirm the upgrade.');
-          router.replace('/settings');
-        },
-      });
-    }
-    // `confirm` is a stable mutation; re-running on param change is the intended trigger.
-  }, [searchParams]);
+  // NOTE: checkout-return confirmation (?checkout=success&session_id=…) is handled
+  // at the Settings PAGE level so it runs regardless of which tab is active.
 
   if (isLoading) return <Skeleton className="h-64 w-full" />;
   if (!usage) return <p className="text-sm text-muted-foreground">Usage data unavailable.</p>;
