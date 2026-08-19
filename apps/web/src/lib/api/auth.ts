@@ -4,7 +4,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { apiRequest } from './client';
 import { tokenStore } from '@/lib/auth/token-store';
-import type { AuthSession, AuthTokens, LoginRequest, RegisterRequest } from '@ama/shared-types';
+import type {
+  AuthSession,
+  AuthTokens,
+  ChangePasswordRequest,
+  LoginRequest,
+  RegisterRequest,
+  UpdateProfileRequest,
+} from '@ama/shared-types';
 
 /** Low-level auth API calls. */
 export const authApi = {
@@ -14,6 +21,10 @@ export const authApi = {
     apiRequest<AuthTokens>('/auth/register', { method: 'POST', body: data }),
   me: () => apiRequest<AuthSession>('/auth/me'),
   logout: () => apiRequest<void>('/auth/logout', { method: 'POST' }),
+  updateProfile: (data: UpdateProfileRequest) =>
+    apiRequest<AuthSession>('/auth/me', { method: 'PATCH', body: data }),
+  changePassword: (data: ChangePasswordRequest) =>
+    apiRequest<void>('/auth/change-password', { method: 'POST', body: data }),
 };
 
 /**
@@ -31,6 +42,21 @@ export function useCurrentUser() {
     retry: false,
     staleTime: 5 * 60 * 1000,
   });
+}
+
+/** Settings → Profile: update display name (refreshes the cached session). */
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: UpdateProfileRequest) => authApi.updateProfile(data),
+    onSuccess: (session) => {
+      queryClient.setQueryData(['auth', 'me'], session.user);
+    },
+  });
+}
+
+export function useChangePassword() {
+  return useMutation({ mutationFn: authApi.changePassword });
 }
 
 export function useLogin() {

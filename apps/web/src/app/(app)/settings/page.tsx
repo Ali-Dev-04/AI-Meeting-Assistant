@@ -1,59 +1,24 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { toast } from 'sonner';
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useConfirmCheckout, useCurrentWorkspace, useMembers } from '@/lib/api/workspaces';
+import { useCurrentWorkspace, useMembers } from '@/lib/api/workspaces';
+import { ProfileTab } from '@/components/settings/profile-tab';
 import { MembersTab } from '@/components/settings/members-tab';
-import { BillingTab } from '@/components/settings/billing-tab';
 
+/** Settings: your profile + workspace management. Billing lives at /billing. */
 export default function SettingsPage() {
   const workspace = useCurrentWorkspace();
   const { data: members } = useMembers(workspace?.id ?? '');
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const confirm = useConfirmCheckout();
-  const handled = useRef(false);
-
-  const returningFromCheckout = searchParams.get('checkout') === 'success';
-
-  // Stripe redirects back with ?checkout=success&session_id=… — handle it at PAGE
-  // level (not inside the Billing tab) so activation runs no matter which tab is
-  // active, or whether the session was restored after the full-page round-trip.
-  useEffect(() => {
-    if (handled.current) return;
-    const status = searchParams.get('checkout');
-    const sessionId = searchParams.get('session_id');
-    if (status === 'cancelled') {
-      handled.current = true;
-      toast.info('Checkout cancelled');
-      router.replace('/settings');
-      return;
-    }
-    if (status === 'success' && sessionId) {
-      handled.current = true;
-      confirm.mutate(sessionId, {
-        onSuccess: ({ plan }) => {
-          toast.success(`Upgraded to ${plan.toLowerCase()} 🎉`);
-          router.replace('/settings');
-        },
-        onError: (error) => {
-          toast.error(error instanceof Error ? error.message : 'Could not confirm the upgrade.');
-          router.replace('/settings');
-        },
-      });
-    }
-    // `confirm` is a stable mutation; param change is the intended trigger.
-  }, [searchParams]);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">Manage your workspace, members, and plan.</p>
+        <p className="text-sm text-muted-foreground">Your profile and workspace management.</p>
       </div>
 
       {!workspace ? (
@@ -72,6 +37,12 @@ export default function SettingsPage() {
             <Card className="space-y-1 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Plan</p>
               <p className="text-lg font-semibold capitalize">{workspace.plan.toLowerCase()}</p>
+              <Link
+                href="/billing"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Manage in Billing <ArrowRight className="h-3 w-3" />
+              </Link>
             </Card>
             <Card className="space-y-1 p-4">
               <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Members</p>
@@ -83,17 +54,16 @@ export default function SettingsPage() {
             </Card>
           </div>
 
-          {/* After checkout, land on the billing tab so the upgrade is visible. */}
-          <Tabs defaultValue={returningFromCheckout ? 'billing' : 'members'}>
+          <Tabs defaultValue="profile">
             <TabsList>
+              <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="members">Members</TabsTrigger>
-              <TabsTrigger value="billing">Plan &amp; Usage</TabsTrigger>
             </TabsList>
+            <TabsContent value="profile">
+              <ProfileTab />
+            </TabsContent>
             <TabsContent value="members">
               <MembersTab workspaceId={workspace.id} />
-            </TabsContent>
-            <TabsContent value="billing">
-              <BillingTab />
             </TabsContent>
           </Tabs>
         </>

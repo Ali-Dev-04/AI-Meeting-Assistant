@@ -78,6 +78,27 @@ export class AuthService {
     return { user: toUserDto(user) };
   }
 
+  /** Settings → Profile: update the signed-in user's display name. */
+  async updateProfile(userId: string, name: string) {
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { name },
+    });
+    return { user: toUserDto(user) };
+  }
+
+  /** Settings → Profile: change password after verifying the current one. */
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.passwordHash) throw new NotFoundError('User');
+    const valid = await this.passwords.compare(currentPassword, user.passwordHash);
+    if (!valid) {
+      throw new UnauthenticatedError('Current password is incorrect.');
+    }
+    const passwordHash = await this.passwords.hash(newPassword);
+    await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+  }
+
   private async issue(userId: string, email: string): Promise<IssueResult> {
     const accessToken = this.tokens.signAccessToken({ id: userId, email });
     const refreshToken = await this.tokens.issueRefreshToken(userId);

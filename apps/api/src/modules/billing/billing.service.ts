@@ -38,8 +38,8 @@ export class BillingService {
     const session = await this.stripe.checkout.sessions.create({
       mode: 'subscription',
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${env.APP_URL}/settings?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${env.APP_URL}/settings?checkout=cancelled`,
+      success_url: `${env.APP_URL}/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${env.APP_URL}/billing?checkout=cancelled`,
       client_reference_id: workspaceId,
       metadata: { workspaceId, plan },
       subscription_data: { metadata: { workspaceId, plan } },

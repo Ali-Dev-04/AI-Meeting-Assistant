@@ -22,6 +22,22 @@ export const registerSchema = z.object({
 });
 export type RegisterRequest = z.infer<typeof registerSchema>;
 
+/** Update the signed-in user's profile (Settings → Profile). */
+export const updateProfileSchema = z.object({
+  name: z.string().trim().min(1, 'Name is required').max(100, 'Name is too long'),
+});
+export type UpdateProfileRequest = z.infer<typeof updateProfileSchema>;
+
+/** Change password: the current password is verified before the new one is set. */
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Enter your current password'),
+  newPassword: z
+    .string()
+    .min(8, 'At least 8 characters')
+    .max(128, 'Password is too long'),
+});
+export type ChangePasswordRequest = z.infer<typeof changePasswordSchema>;
+
 /** Token pair returned by login/refresh. Refresh is httpOnly-cookie based; only the
  *  short-lived access token is exposed to JS. */
 export interface AuthTokens {

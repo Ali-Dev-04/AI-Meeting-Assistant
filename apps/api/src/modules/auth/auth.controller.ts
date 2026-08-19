@@ -1,8 +1,17 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Patch, Post, Req, Res } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
-import { loginSchema, registerSchema, type LoginRequest, type RegisterRequest } from '@ama/shared-types';
+import {
+  changePasswordSchema,
+  loginSchema,
+  registerSchema,
+  updateProfileSchema,
+  type ChangePasswordRequest,
+  type LoginRequest,
+  type RegisterRequest,
+  type UpdateProfileRequest,
+} from '@ama/shared-types';
 import { UnauthenticatedError } from '../../common/errors';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { clearRefreshCookie, setRefreshCookie } from './auth.util';
@@ -78,5 +87,24 @@ export class AuthController {
   @ApiOperation({ summary: 'Get the current user' })
   async me(@CurrentUser() user: AuthUser) {
     return this.auth.getSession(user.id);
+  }
+
+  @Patch('me')
+  @ApiOperation({ summary: "Update the current user's profile (name)" })
+  async updateProfile(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(updateProfileSchema)) body: UpdateProfileRequest,
+  ) {
+    return this.auth.updateProfile(user.id, body.name);
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Change password (verifies the current one)' })
+  async changePassword(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(changePasswordSchema)) body: ChangePasswordRequest,
+  ) {
+    await this.auth.changePassword(user.id, body.currentPassword, body.newPassword);
   }
 }
